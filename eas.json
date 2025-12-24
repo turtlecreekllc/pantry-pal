@@ -41,7 +41,8 @@
     "production": {
       "ios": {
         "appleId": "shane@turtlecreekllc.com",
-        "appleTeamId": "W4GNBUD8T8"
+        "appleTeamId": "W4GNBUD8T8",
+        "ascAppId": "6739991612"
       }
     }
   }
