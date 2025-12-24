@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null; message?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -75,11 +75,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
       if (error) throw error;
+
+      // Check if email confirmation is required
+      // If user exists but identities is empty, email confirmation is pending
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        throw new Error('This email is already registered. Please sign in instead.');
+      }
+
+      // If session is null but user exists, email confirmation is required
+      if (data.user && !data.session) {
+        return {
+          error: null,
+          message: 'Please check your email for a confirmation link to complete your registration.'
+        };
+      }
+
       return { error: null };
     } catch (error) {
       return { error: error as Error };

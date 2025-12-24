@@ -19,10 +19,12 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { signUp, loading } = useAuth();
 
   const handleSignUp = async () => {
     setError(null);
+    setSuccessMessage(null);
 
     if (!email.trim()) {
       setError('Please enter your email');
@@ -41,9 +43,11 @@ export default function SignUpScreen() {
       return;
     }
 
-    const { error: signUpError } = await signUp(email.trim(), password);
+    const { error: signUpError, message } = await signUp(email.trim(), password);
     if (signUpError) {
       setError(signUpError.message || 'Failed to create account');
+    } else if (message) {
+      setSuccessMessage(message);
     }
   };
 
@@ -97,10 +101,17 @@ export default function SignUpScreen() {
 
             {error && <Text style={styles.errorText}>{error}</Text>}
 
+            {successMessage && (
+              <View style={styles.successContainer}>
+                <Text style={styles.successText}>{successMessage}</Text>
+              </View>
+            )}
+
             <Button
-              title="Create Account"
+              title={successMessage ? "Resend Email" : "Create Account"}
               onPress={handleSignUp}
               loading={loading}
+              disabled={!!successMessage}
               style={styles.button}
             />
 
@@ -157,6 +168,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
+  },
+  successContainer: {
+    backgroundColor: '#E8F5E9',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  successText: {
+    color: '#2E7D32',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   button: {
     marginTop: 8,

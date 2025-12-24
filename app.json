@@ -16,11 +16,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pantrypal.app",
+      "bundleIdentifier": "com.turtlecreekllc.pantrypal",
       "infoPlist": {
         "NSCameraUsageDescription": "Pantry Pal needs camera access to scan product barcodes",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +29,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.pantrypal.app",
+      "package": "com.turtlecreekllc.pantrypal",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
