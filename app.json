@@ -2,6 +2,7 @@
   "expo": {
     "name": "Pantry Pal",
     "slug": "pantry-pal",
+    "owner": "turtlecreekllc",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -28,7 +29,8 @@
       "edgeToEdgeEnabled": true,
       "package": "com.pantrypal.app",
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -45,6 +47,12 @@
         }
       ],
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "29839ee1-90e3-43a9-a1c5-b7815d5af167"
+      }
+    }
   }
 }
