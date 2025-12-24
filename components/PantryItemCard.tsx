@@ -1,7 +1,29 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { PantryItem } from '../lib/types';
+import { PantryItem, Unit } from '../lib/types';
+
+const UNIT_LABELS: Record<Unit, string> = {
+  item: 'item',
+  oz: 'oz',
+  lb: 'lb',
+  g: 'g',
+  kg: 'kg',
+  ml: 'ml',
+  l: 'L',
+  cup: 'cup',
+  tbsp: 'tbsp',
+  tsp: 'tsp',
+};
+
+function formatUnit(unit: string, quantity: number): string {
+  const label = UNIT_LABELS[unit as Unit] || unit;
+  // Add plural 's' for items and cups when quantity > 1
+  if (quantity !== 1 && (unit === 'item' || unit === 'cup')) {
+    return label + 's';
+  }
+  return label;
+}
 
 interface PantryItemCardProps {
   item: PantryItem;
@@ -72,9 +94,11 @@ export function PantryItemCard({ item, onPress }: PantryItemCardProps) {
               {item.location.charAt(0).toUpperCase() + item.location.slice(1)}
             </Text>
           </View>
-          <Text style={styles.quantity}>
-            x{item.quantity} {item.unit !== 'item' ? item.unit : ''}
-          </Text>
+          <View style={styles.quantityBadge}>
+            <Text style={styles.quantityText}>
+              {item.quantity} {formatUnit(item.unit, item.quantity)}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -158,9 +182,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
-  quantity: {
+  quantityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  quantityText: {
     fontSize: 12,
-    color: '#666',
+    color: '#4CAF50',
+    fontWeight: '600',
   },
   expirationBadge: {
     flexDirection: 'row',

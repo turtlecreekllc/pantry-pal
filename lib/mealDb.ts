@@ -1,6 +1,13 @@
-import { RecipePreview, Recipe, RecipeIngredient, MealDBMeal, MealDBSearchResponse } from './types';
+import { RecipePreview, Recipe, RecipeIngredient, MealDBMeal, MealDBSearchResponse, PantryItem } from './types';
 
 const BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
+
+// Recipe with match score
+export interface ScoredRecipe extends Recipe {
+  matchScore: number; // 0-100 percentage
+  matchedIngredients: string[];
+  missingIngredients: string[];
+}
 
 export async function searchByIngredient(ingredient: string): Promise<RecipePreview[]> {
   try {
@@ -130,4 +137,135 @@ export async function getRandomRecipe(): Promise<Recipe | null> {
     console.error('TheMealDB API error:', error);
     return null;
   }
+}
+
+// Helper function to normalize ingredient names for comparison
+function normalizeIngredient(name: string): string {
+  return name.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .trim();
+}
+
+// Check if a pantry item name matches a recipe ingredient
+function ingredientMatches(pantryItemName: string, recipeIngredient: string): boolean {
+  const normalizedPantry = normalizeIngredient(pantryItemName);
+  const normalizedRecipe = normalizeIngredient(recipeIngredient);
+
+  // Direct match
+  if (normalizedPantry === normalizedRecipe) return true;
+
+  // Partial match (pantry item contains recipe ingredient or vice versa)
+  if (normalizedPantry.includes(normalizedRecipe) || normalizedRecipe.includes(normalizedPantry)) return true;
+
+  // Word-level match (any word matches)
+  const pantryWords = normalizedPantry.split(' ');
+  const recipeWords = normalizedRecipe.split(' ');
+
+  for (const pantryWord of pantryWords) {
+    if (pantryWord.length >= 3) { // Only match words with 3+ chars
+      for (const recipeWord of recipeWords) {
+        if (recipeWord.length >= 3 && (pantryWord.includes(recipeWord) || recipeWord.includes(pantryWord))) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+// Score a recipe based on how many ingredients match pantry items
+function scoreRecipe(recipe: Recipe, pantryItems: PantryItem[]): ScoredRecipe {
+  const pantryNames = pantryItems.map(item => item.name);
+  const matchedIngredients: string[] = [];
+  const missingIngredients: string[] = [];
+
+  for (const recipeIng of recipe.ingredients) {
+    const matched = pantryNames.some(pantryName =>
+      ingredientMatches(pantryName, recipeIng.ingredient)
+    );
+
+    if (matched) {
+      matchedIngredients.push(recipeIng.ingredient);
+    } else {
+      missingIngredients.push(recipeIng.ingredient);
+    }
+  }
+
+  const totalIngredients = recipe.ingredients.length;
+  const matchScore = totalIngredients > 0
+    ? Math.round((matchedIngredients.length / totalIngredients) * 100)
+    : 0;
+
+  return {
+    ...recipe,
+    matchScore,
+    matchedIngredients,
+    missingIngredients,
+  };
+}
+
+// Search for recipes using multiple pantry items and score them
+export async function searchAndScoreRecipes(
+  selectedPantryItems: PantryItem[],
+  allPantryItems: PantryItem[]
+): Promise<ScoredRecipe[]> {
+  if (selectedPantryItems.length === 0) {
+    return [];
+  }
+
+  // Search for recipes using each selected ingredient
+  const allRecipePreviews: Map<string, RecipePreview> = new Map();
+
+  await Promise.all(
+    selectedPantryItems.map(async (item) => {
+      const previews = await searchByIngredient(item.name);
+      previews.forEach(preview => {
+        if (!allRecipePreviews.has(preview.id)) {
+          allRecipePreviews.set(preview.id, preview);
+        }
+      });
+    })
+  );
+
+  // Get full recipe details and score them
+  const recipeIds = Array.from(allRecipePreviews.keys());
+
+  // Limit to top 20 recipes to avoid too many API calls
+  const limitedIds = recipeIds.slice(0, 20);
+
+  const fullRecipes = await Promise.all(
+    limitedIds.map(id => getRecipeById(id))
+  );
+
+  // Score recipes using ALL pantry items (not just selected ones)
+  const scoredRecipes = fullRecipes
+    .filter((recipe): recipe is Recipe => recipe !== null)
+    .map(recipe => scoreRecipe(recipe, allPantryItems))
+    .sort((a, b) => b.matchScore - a.matchScore);
+
+  return scoredRecipes;
+}
+
+// Get recipe previews for multiple ingredients
+export async function searchByMultipleIngredients(
+  ingredients: string[]
+): Promise<RecipePreview[]> {
+  if (ingredients.length === 0) return [];
+
+  const allPreviews: Map<string, RecipePreview> = new Map();
+
+  await Promise.all(
+    ingredients.map(async (ingredient) => {
+      const previews = await searchByIngredient(ingredient);
+      previews.forEach(preview => {
+        if (!allPreviews.has(preview.id)) {
+          allPreviews.set(preview.id, preview);
+        }
+      });
+    })
+  );
+
+  return Array.from(allPreviews.values());
 }

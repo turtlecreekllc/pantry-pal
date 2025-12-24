@@ -17,7 +17,8 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { QuantitySelector } from '../../components/ui/QuantitySelector';
 import { DatePicker } from '../../components/ui/DatePicker';
-import { Location, NutritionInfo } from '../../lib/types';
+import { UnitSelector } from '../../components/ui/UnitSelector';
+import { Location, NutritionInfo, Unit } from '../../lib/types';
 
 export default function AddItemScreen() {
   const router = useRouter();
@@ -34,6 +35,7 @@ export default function AddItemScreen() {
 
   const [name, setName] = useState(params.name || '');
   const [quantity, setQuantity] = useState(1);
+  const [unit, setUnit] = useState<Unit>('item');
   const [location, setLocation] = useState<Location>('pantry');
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
 
@@ -56,7 +58,7 @@ export default function AddItemScreen() {
         brand: params.brand || null,
         category: null,
         quantity,
-        unit: 'item',
+        unit,
         expiration_date: expirationDate?.toISOString().split('T')[0] || null,
         image_url: params.imageUrl || null,
         nutrition_json: nutrition,
@@ -113,8 +115,10 @@ export default function AddItemScreen() {
               placeholder="Product name"
             />
 
-            <Text style={styles.label}>Quantity</Text>
-            <QuantitySelector value={quantity} onChange={setQuantity} />
+            <Text style={styles.label}>Quantity & Unit</Text>
+            <QuantitySelector value={quantity} onChange={setQuantity} unit={unit} />
+            <Text style={[styles.label, { marginTop: 12 }]}>Measurement Unit</Text>
+            <UnitSelector value={unit} onChange={setUnit} />
 
             <Text style={[styles.label, { marginTop: 16 }]}>Location</Text>
             <View style={styles.locationButtons}>
