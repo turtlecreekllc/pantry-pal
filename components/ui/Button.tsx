@@ -62,10 +62,10 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 50,
   },
   primary: {
     backgroundColor: '#4CAF50',

@@ -107,12 +107,15 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    gap: 4,
   },
   headerButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   errorBanner: {
     backgroundColor: '#ffebee',

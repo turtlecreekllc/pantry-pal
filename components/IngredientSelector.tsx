@@ -122,8 +122,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: 'center',
   },
   headerButtonText: {
     fontSize: 14,
@@ -136,13 +138,15 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: '#f5f5f5',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    borderRadius: 22,
+    minHeight: 44,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: '#e0e0e0',
     minWidth: 100,
-    maxWidth: 160,
+    maxWidth: 180,
+    justifyContent: 'center',
   },
   chipSelected: {
     backgroundColor: '#4CAF50',

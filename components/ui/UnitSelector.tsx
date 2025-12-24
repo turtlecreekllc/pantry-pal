@@ -67,12 +67,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   unitButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    minHeight: 44,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 22,
     backgroundColor: '#f5f5f5',
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    justifyContent: 'center',
   },
   unitButtonActive: {
     backgroundColor: '#4CAF50',
