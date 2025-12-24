@@ -28,10 +28,22 @@
     },
     "production": {
       "extends": "base",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "ios": {
+        "autoIncrement": "buildNumber"
+      },
+      "android": {
+        "autoIncrement": "versionCode"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "shane@turtlecreekllc.com",
+        "ascAppId": "6745210379",
+        "appleTeamId": "8FN87NX4RG"
+      }
+    }
   }
 }
