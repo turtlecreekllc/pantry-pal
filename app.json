@@ -18,7 +18,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.pantrypal.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Pantry Pal needs camera access to scan product barcodes"
+        "NSCameraUsageDescription": "Pantry Pal needs camera access to scan product barcodes",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
