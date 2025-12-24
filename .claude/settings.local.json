@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-expo-app@latest . --template blank-typescript --yes)",
+      "Bash(xcopy /E /I /Y \"pantry-pal-temp\\\\*\" \"pantry-pal\"\")",
+      "Bash(npx expo install:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx expo doctor:*)",
+      "Bash(npx expo-doctor:*)",
+      "Bash(npx expo export --platform all)",
+      "Bash(npx expo export:*)",
+      "Bash(npx eas-cli:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
