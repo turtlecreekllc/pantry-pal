@@ -4,23 +4,20 @@ import {
   FlatList,
   StyleSheet,
   RefreshControl,
-  TouchableOpacity,
   Text,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { usePantry } from '../../hooks/usePantry';
-import { useAuth } from '../../context/AuthContext';
 import { PantryItemCard } from '../../components/PantryItemCard';
 import { EmptyState } from '../../components/EmptyState';
 import { PantryListSkeleton } from '../../components/LoadingSkeleton';
+import { ExpandableFAB } from '../../components/ExpandableFAB';
 import { PantryItem } from '../../lib/types';
 
 export default function PantryScreen() {
   const router = useRouter();
   const { pantryItems, loading, error, refreshPantry } = usePantry();
-  const { signOut } = useAuth();
 
   const handleItemPress = useCallback((item: PantryItem) => {
     router.push(`/item/${item.id}`);
@@ -40,6 +37,19 @@ export default function PantryScreen() {
 
   const keyExtractor = useCallback((item: PantryItem) => item.id, []);
 
+  const fabActions = [
+    {
+      icon: 'create-outline' as const,
+      label: 'Add Manually',
+      onPress: handleManualAdd,
+    },
+    {
+      icon: 'scan' as const,
+      label: 'Scan Barcode',
+      onPress: handleScanPress,
+    },
+  ];
+
   if (loading && pantryItems.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -50,15 +60,6 @@ export default function PantryScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleManualAdd} style={styles.headerButton}>
-          <Ionicons name="add" size={24} color="#4CAF50" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={signOut} style={styles.headerButton}>
-          <Ionicons name="log-out-outline" size={24} color="#666" />
-        </TouchableOpacity>
-      </View>
-
       {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
@@ -92,9 +93,7 @@ export default function PantryScreen() {
         }
       />
 
-      <TouchableOpacity style={styles.fab} onPress={handleScanPress} activeOpacity={0.8}>
-        <Ionicons name="scan" size={28} color="#fff" />
-      </TouchableOpacity>
+      <ExpandableFAB actions={fabActions} />
     </SafeAreaView>
   );
 }
@@ -103,19 +102,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    gap: 4,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   errorBanner: {
     backgroundColor: '#ffebee',
@@ -132,21 +118,5 @@ const styles = StyleSheet.create({
   },
   emptyListContent: {
     flex: 1,
-  },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#4CAF50',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 8,
   },
 });

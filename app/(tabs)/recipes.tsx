@@ -91,6 +91,22 @@ export default function RecipesScreen() {
     }
   }, [selectedPantryItems, pantryItems]);
 
+  const handleMagicSuggestion = useCallback(async () => {
+    if (pantryItems.length === 0) return;
+
+    setScoredLoading(true);
+    setSearchMode('pantry');
+    setSelectedIngredientIds(new Set(pantryItems.map(item => item.id)));
+    try {
+      const scored = await searchAndScoreRecipes(pantryItems, pantryItems);
+      setScoredRecipes(scored);
+    } catch (error) {
+      console.error('Error finding recipes:', error);
+    } finally {
+      setScoredLoading(false);
+    }
+  }, [pantryItems]);
+
   const renderTextSearchItem = useCallback(({ item }: { item: RecipePreview }) => (
     <View style={styles.cardWrapper}>
       <RecipeCard recipe={item} onPress={() => handleRecipePress(item)} />
@@ -254,6 +270,18 @@ export default function RecipesScreen() {
           description="Enter an ingredient to find delicious recipes you can make!"
         />
       )}
+
+      {/* Magic Suggestion FAB */}
+      {pantryItems.length > 0 && (
+        <TouchableOpacity
+          style={styles.magicFab}
+          onPress={handleMagicSuggestion}
+          activeOpacity={0.8}
+          disabled={scoredLoading}
+        >
+          <Ionicons name="sparkles" size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -344,5 +372,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     padding: 12,
+  },
+  magicFab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#9C27B0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
   },
 });
