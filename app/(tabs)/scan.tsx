@@ -26,6 +26,8 @@ export default function ScanScreen() {
             brand: product.brand || '',
             imageUrl: product.imageUrl || '',
             nutrition: product.nutrition ? JSON.stringify(product.nutrition) : '',
+            parsedQuantity: product.parsedQuantity ? JSON.stringify(product.parsedQuantity) : '',
+            productQuantity: product.productQuantity || '',
           },
         });
       } else {

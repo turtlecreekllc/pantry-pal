@@ -14,6 +14,7 @@ interface DatePickerProps {
   onChange: (date: Date | null) => void;
   label?: string;
   placeholder?: string;
+  compact?: boolean;
 }
 
 export function DatePicker({
@@ -21,6 +22,7 @@ export function DatePicker({
   onChange,
   label,
   placeholder = 'Select date',
+  compact = false,
 }: DatePickerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState(value || new Date());
@@ -61,17 +63,17 @@ export function DatePicker({
   };
 
   return (
-    <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+    <View style={[styles.container, compact && styles.containerCompact]}>
+      {label && !compact && <Text style={styles.label}>{label}</Text>}
       <TouchableOpacity
-        style={styles.inputContainer}
+        style={[styles.inputContainer, compact && styles.inputContainerCompact]}
         onPress={() => setShowPicker(true)}
       >
-        <Ionicons name="calendar-outline" size={20} color="#666" />
-        <Text style={[styles.dateText, !value && styles.placeholder]}>
+        <Ionicons name="calendar-outline" size={compact ? 16 : 20} color="#666" />
+        <Text style={[styles.dateText, compact && styles.dateTextCompact, !value && styles.placeholder]}>
           {formatDate(value)}
         </Text>
-        {value && (
+        {value && !compact && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
             <Ionicons name="close-circle" size={20} color="#999" />
           </TouchableOpacity>
@@ -157,6 +159,10 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
   },
+  containerCompact: {
+    marginBottom: 0,
+    alignSelf: 'flex-start',
+  },
   label: {
     fontSize: 14,
     fontWeight: '500',
@@ -173,11 +179,21 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
+  inputContainerCompact: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
   dateText: {
     flex: 1,
     fontSize: 16,
     color: '#333',
     marginLeft: 10,
+  },
+  dateTextCompact: {
+    flex: 0,
+    fontSize: 14,
+    marginLeft: 6,
   },
   placeholder: {
     color: '#999',

@@ -43,22 +43,40 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="scan"
-        options={{
-          title: 'Scan',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="camera" size={size} color={color} />
-          ),
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
         name="recipes"
         options={{
           title: 'Recipes',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="book" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Calendar',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="saved"
+        options={{
+          title: 'Saved',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="heart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="scan"
+        options={{
+          title: 'Scan',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="scan" size={size} color={color} />
+          ),
+          headerShown: false,
         }}
       />
     </Tabs>

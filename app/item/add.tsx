@@ -29,14 +29,19 @@ export default function AddItemScreen() {
     brand: string;
     imageUrl: string;
     nutrition: string;
+    parsedQuantity: string;
+    productQuantity: string;
   }>();
 
   const { addItem } = usePantry();
   const [loading, setLoading] = useState(false);
 
+  // Parse the quantity from API if available
+  const parsedQty = params.parsedQuantity ? JSON.parse(params.parsedQuantity) : null;
+
   const [name, setName] = useState(params.name || '');
-  const [quantity, setQuantity] = useState(1);
-  const [unit, setUnit] = useState<Unit>('item');
+  const [quantity, setQuantity] = useState(parsedQty?.value || 1);
+  const [unit, setUnit] = useState<Unit>(parsedQty?.unit || 'item');
   const [location, setLocation] = useState<Location>('pantry');
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
 
@@ -64,6 +69,9 @@ export default function AddItemScreen() {
         image_url: params.imageUrl || null,
         nutrition_json: nutrition,
         location,
+        location_notes: null,
+        original_quantity: quantity,
+        usage_history: [],
       });
 
       Alert.alert('Success', 'Item added to your pantry!', [

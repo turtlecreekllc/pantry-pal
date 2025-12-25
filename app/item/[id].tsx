@@ -35,6 +35,7 @@ export default function ItemDetailsScreen() {
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState<Unit>('item');
   const [location, setLocation] = useState<Location>('pantry');
+  const [locationNotes, setLocationNotes] = useState('');
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function ItemDetailsScreen() {
       setQuantity(foundItem.quantity);
       setUnit((foundItem.unit as Unit) || 'item');
       setLocation(foundItem.location);
+      setLocationNotes(foundItem.location_notes || '');
       setExpirationDate(
         foundItem.expiration_date ? new Date(foundItem.expiration_date) : null
       );
@@ -62,6 +64,7 @@ export default function ItemDetailsScreen() {
         quantity,
         unit,
         location,
+        location_notes: locationNotes.trim() || null,
         expiration_date: expirationDate?.toISOString().split('T')[0] || null,
       });
       setHasChanges(false);
@@ -173,12 +176,25 @@ export default function ItemDetailsScreen() {
               placeholder="Product name"
             />
 
-            <Text style={styles.label}>Quantity</Text>
-            <QuantitySelector
-              value={quantity}
-              onChange={(value) => handleFieldChange(setQuantity, value)}
-              unit={unit}
-            />
+            <View style={styles.compactRow}>
+              <View style={styles.compactField}>
+                <Text style={styles.label}>Quantity</Text>
+                <QuantitySelector
+                  value={quantity}
+                  onChange={(value) => handleFieldChange(setQuantity, value)}
+                  unit={unit}
+                />
+              </View>
+              <View style={styles.compactField}>
+                <Text style={styles.label}>Expires</Text>
+                <DatePicker
+                  value={expirationDate}
+                  onChange={(value) => handleFieldChange(setExpirationDate, value)}
+                  placeholder="Not set"
+                  compact
+                />
+              </View>
+            </View>
 
             <Text style={[styles.label, { marginTop: 12 }]}>Unit</Text>
             <UnitSelector
@@ -199,11 +215,11 @@ export default function ItemDetailsScreen() {
               ))}
             </View>
 
-            <DatePicker
-              label="Expiration Date"
-              value={expirationDate}
-              onChange={(value) => handleFieldChange(setExpirationDate, value)}
-              placeholder="No expiration date"
+            <Input
+              label="Location Notes (optional)"
+              value={locationNotes}
+              onChangeText={(value) => handleFieldChange(setLocationNotes, value)}
+              placeholder="e.g., Top shelf, behind the milk"
             />
 
             {nutrition && (
@@ -316,6 +332,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333',
     marginBottom: 6,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 12,
+  },
+  compactField: {
+    flex: 0,
   },
   locationButtons: {
     flexDirection: 'row',

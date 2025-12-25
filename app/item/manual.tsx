@@ -56,6 +56,9 @@ export default function ManualEntryScreen() {
         image_url: null,
         nutrition_json: null,
         location,
+        location_notes: null,
+        original_quantity: quantity,
+        usage_history: [],
       });
 
       Alert.alert('Success', 'Item added to your pantry!', [

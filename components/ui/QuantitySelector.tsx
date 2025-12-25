@@ -52,9 +52,18 @@ export function QuantitySelector({
   };
 
   const handleInputSubmit = () => {
-    const parsed = parseFloat(inputValue);
-    if (!isNaN(parsed) && parsed >= effectiveMin && parsed <= max) {
-      onChange(Number(parsed.toFixed(2)));
+    // Replace comma with period for locales that use comma as decimal separator
+    const sanitizedInput = inputValue.replace(',', '.');
+    const parsed = parseFloat(sanitizedInput);
+
+    if (!isNaN(parsed) && parsed > 0 && parsed <= max) {
+      // For decimal units, allow any positive decimal value
+      // For integer units (item), round to whole number
+      const finalValue = supportsDecimals
+        ? Number(parsed.toFixed(2))
+        : Math.max(1, Math.round(parsed));
+      onChange(finalValue);
+      setInputValue(finalValue.toString());
     } else {
       setInputValue(value.toString());
     }
@@ -128,7 +137,17 @@ export function QuantitySelector({
             <TextInput
               style={styles.input}
               value={inputValue}
-              onChangeText={setInputValue}
+              onChangeText={(text) => {
+                // Allow only digits, single decimal point, and comma
+                const filtered = text.replace(/[^0-9.,]/g, '');
+                // Prevent multiple decimal separators
+                const parts = filtered.split(/[.,]/);
+                if (parts.length > 2) {
+                  setInputValue(parts[0] + '.' + parts.slice(1).join(''));
+                } else {
+                  setInputValue(filtered);
+                }
+              }}
               keyboardType="decimal-pad"
               autoFocus
               selectTextOnFocus

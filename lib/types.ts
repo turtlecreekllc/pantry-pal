@@ -12,8 +12,17 @@ export interface PantryItem {
   image_url: string | null;
   nutrition_json: NutritionInfo | null;
   location: 'pantry' | 'fridge' | 'freezer';
+  location_notes: string | null;
+  original_quantity: number | null;
+  usage_history: UsageHistoryEntry[] | null;
   added_at: string;
   updated_at: string;
+}
+
+export interface UsageHistoryEntry {
+  amount: number;
+  timestamp: string;
+  note?: string;
 }
 
 export interface NutritionInfo {
@@ -28,6 +37,12 @@ export interface NutritionInfo {
   sodium?: number;
 }
 
+// Parsed quantity from product
+export interface ParsedQuantity {
+  value: number;
+  unit: Unit;
+}
+
 // Open Food Facts API response
 export interface ProductInfo {
   barcode: string;
@@ -36,6 +51,9 @@ export interface ProductInfo {
   imageUrl: string | null;
   nutrition: NutritionInfo | null;
   categories: string[];
+  productQuantity: string | null;
+  servingSize: string | null;
+  parsedQuantity: ParsedQuantity | null;
 }
 
 export interface OpenFoodFactsResponse {
@@ -45,6 +63,9 @@ export interface OpenFoodFactsResponse {
     product_name?: string;
     brands?: string;
     image_url?: string;
+    quantity?: string;
+    serving_size?: string;
+    product_quantity?: number;
     nutriments?: {
       'energy-kcal'?: number;
       fat?: number;
@@ -128,3 +149,94 @@ export type Location = (typeof LOCATIONS)[number];
 // Unit options
 export const UNITS = ['item', 'oz', 'lb', 'g', 'kg', 'ml', 'l', 'cup', 'tbsp', 'tsp'] as const;
 export type Unit = (typeof UNITS)[number];
+
+// Recipe source types
+export type RecipeSource = 'themealdb' | 'spoonacular' | 'web';
+
+// Extended Recipe for multi-source support
+export interface ExtendedRecipe extends Recipe {
+  recipeSource?: RecipeSource;
+  readyInMinutes?: number;
+  servings?: number;
+  diets?: string[];
+  difficulty?: 'easy' | 'medium' | 'hard';
+}
+
+// Scored recipe from pantry matching
+export interface ScoredRecipe extends ExtendedRecipe {
+  matchScore: number;
+  matchedIngredients: string[];
+  missingIngredients: string[];
+}
+
+// Saved Recipe
+export interface SavedRecipe {
+  id: string;
+  user_id: string;
+  recipe_id: string;
+  recipe_source: RecipeSource;
+  recipe_data: ExtendedRecipe;
+  notes: string | null;
+  rating: number | null;
+  tags: string[];
+  saved_at: string;
+  updated_at: string;
+}
+
+// Meal Plan
+export const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
+export type MealType = (typeof MEAL_TYPES)[number];
+
+export interface MealPlan {
+  id: string;
+  user_id: string;
+  date: string;
+  meal_type: MealType;
+  recipe_id: string | null;
+  recipe_source: RecipeSource | null;
+  recipe_name: string;
+  recipe_thumbnail: string | null;
+  servings: number;
+  notes: string | null;
+  is_completed: boolean;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Ingredient deduction for meal completion
+export interface IngredientDeduction {
+  pantry_item_id: string;
+  pantry_item_name: string;
+  amount_to_deduct: number;
+  unit: string;
+  confirmed: boolean;
+}
+
+// Meal completion log
+export interface MealCompletionLog {
+  id: string;
+  user_id: string;
+  meal_plan_id: string;
+  deductions: IngredientDeduction[];
+  completed_at: string;
+}
+
+// Recipe filter options
+export interface RecipeFilters {
+  cuisine: string | null;
+  diet: string | null;
+  maxTime: number | null;
+  sortBy: 'matchScore' | 'time' | 'name';
+  sortOrder: 'asc' | 'desc';
+}
+
+export const CUISINES = [
+  'Italian', 'Mexican', 'Asian', 'American', 'Indian',
+  'Mediterranean', 'French', 'Chinese', 'Japanese', 'Thai',
+] as const;
+
+export const DIETS = [
+  'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free',
+  'Keto', 'Paleo', 'Low-Carb',
+] as const;
