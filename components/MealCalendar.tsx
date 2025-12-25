@@ -80,15 +80,19 @@ export function MealCalendar({
         <TouchableOpacity onPress={goToPrevMonth} style={styles.navButton}>
           <Ionicons name="chevron-back" size={24} color="#4CAF50" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={goToToday}>
-          <Text style={styles.monthTitle}>
-            {viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.monthTitle}>
+          {viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        </Text>
         <TouchableOpacity onPress={goToNextMonth} style={styles.navButton}>
           <Ionicons name="chevron-forward" size={24} color="#4CAF50" />
         </TouchableOpacity>
       </View>
+
+      {/* Today Button */}
+      <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
+        <Ionicons name="today-outline" size={16} color="#4CAF50" />
+        <Text style={styles.todayButtonText}>Today</Text>
+      </TouchableOpacity>
 
       {/* Weekday Headers */}
       <View style={styles.weekHeader}>
@@ -103,7 +107,7 @@ export function MealCalendar({
       <View style={styles.grid}>
         {calendarDays.map((date, index) => {
           if (!date) {
-            return <View key={`empty-${index}`} style={styles.dayCell} />;
+            return <View key={`empty-${index}`} style={styles.dayCellWrapper} />;
           }
 
           const meals = getMealsForDay(date);
@@ -114,31 +118,32 @@ export function MealCalendar({
           const hasPlanned = meals.some((m) => !m.is_completed);
 
           return (
-            <TouchableOpacity
-              key={date.toISOString()}
-              style={[
-                styles.dayCell,
-                isSelected && styles.selectedDay,
-                isToday && !isSelected && styles.today,
-              ]}
-              onPress={() => onSelectDate(date)}
-            >
-              <Text
+            <View key={date.toISOString()} style={styles.dayCellWrapper}>
+              <TouchableOpacity
                 style={[
-                  styles.dayNumber,
-                  isSelected && styles.selectedDayText,
-                  isToday && !isSelected && styles.todayText,
+                  styles.dayCell,
+                  isSelected && styles.selectedDay,
+                  isToday && !isSelected && styles.today,
                 ]}
+                onPress={() => onSelectDate(date)}
               >
-                {date.getDate()}
-              </Text>
-              {hasMeals && (
-                <View style={styles.mealIndicators}>
-                  {hasPlanned && <View style={styles.mealDotPlanned} />}
-                  {hasCompleted && <View style={styles.mealDotCompleted} />}
-                </View>
-              )}
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.dayNumber,
+                    isSelected && styles.selectedDayText,
+                    isToday && !isSelected && styles.todayText,
+                  ]}
+                >
+                  {date.getDate()}
+                </Text>
+                {hasMeals && (
+                  <View style={styles.mealIndicators}>
+                    {hasPlanned && <View style={styles.mealDotPlanned} />}
+                    {hasCompleted && <View style={styles.mealDotCompleted} />}
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           );
         })}
       </View>
@@ -230,6 +235,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
+  todayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#e8f5e9',
+    borderRadius: 16,
+    marginBottom: 8,
+  },
+  todayButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4CAF50',
+  },
   weekHeader: {
     flexDirection: 'row',
     paddingHorizontal: 8,
@@ -247,21 +269,26 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: 8,
   },
-  dayCell: {
+  dayCellWrapper: {
     width: '14.28%',
     aspectRatio: 1,
+    padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 2,
+  },
+  dayCell: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
   },
   selectedDay: {
     backgroundColor: '#4CAF50',
-    borderRadius: 8,
   },
   today: {
     borderWidth: 2,
     borderColor: '#4CAF50',
-    borderRadius: 8,
   },
   dayNumber: {
     fontSize: 14,
