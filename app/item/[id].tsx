@@ -8,8 +8,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { usePantry } from '../../hooks/usePantry';
@@ -17,7 +18,8 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { QuantitySelector } from '../../components/ui/QuantitySelector';
 import { DatePicker } from '../../components/ui/DatePicker';
-import { Location, PantryItem, NutritionInfo } from '../../lib/types';
+import { UnitSelector } from '../../components/ui/UnitSelector';
+import { Location, PantryItem, NutritionInfo, Unit } from '../../lib/types';
 
 export default function ItemDetailsScreen() {
   const router = useRouter();
@@ -31,6 +33,7 @@ export default function ItemDetailsScreen() {
   // Form state
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [unit, setUnit] = useState<Unit>('item');
   const [location, setLocation] = useState<Location>('pantry');
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
 
@@ -40,6 +43,7 @@ export default function ItemDetailsScreen() {
       setItem(foundItem);
       setName(foundItem.name);
       setQuantity(foundItem.quantity);
+      setUnit((foundItem.unit as Unit) || 'item');
       setLocation(foundItem.location);
       setExpirationDate(
         foundItem.expiration_date ? new Date(foundItem.expiration_date) : null
@@ -56,6 +60,7 @@ export default function ItemDetailsScreen() {
       await updateItem(item.id, {
         name: name.trim(),
         quantity,
+        unit,
         location,
         expiration_date: expirationDate?.toISOString().split('T')[0] || null,
       });
@@ -125,6 +130,20 @@ export default function ItemDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Stack.Screen
+        options={{
+          title: 'Item Details',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="chevron-back" size={28} color="#fff" />
+            </TouchableOpacity>
+          ),
+        }}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -158,10 +177,16 @@ export default function ItemDetailsScreen() {
             <QuantitySelector
               value={quantity}
               onChange={(value) => handleFieldChange(setQuantity, value)}
-              unit={item.unit}
+              unit={unit}
             />
 
-            <Text style={[styles.label, { marginTop: 16 }]}>Location</Text>
+            <Text style={[styles.label, { marginTop: 12 }]}>Unit</Text>
+            <UnitSelector
+              value={unit}
+              onChange={(value) => handleFieldChange(setUnit, value)}
+            />
+
+            <Text style={styles.label}>Location</Text>
             <View style={styles.locationButtons}>
               {(['pantry', 'fridge', 'freezer'] as Location[]).map((loc) => (
                 <Button
@@ -245,6 +270,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -8,
   },
   keyboardView: {
     flex: 1,

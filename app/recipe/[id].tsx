@@ -9,7 +9,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../hooks/useRecipes';
@@ -18,6 +18,7 @@ import { EmptyState } from '../../components/EmptyState';
 export default function RecipeDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
+  const router = useRouter();
   const { selectedRecipe, loading, error, fetchRecipeDetails, clearSelectedRecipe } = useRecipes();
 
   useEffect(() => {
@@ -70,6 +71,20 @@ export default function RecipeDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Stack.Screen
+        options={{
+          title: selectedRecipe.name,
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="chevron-back" size={28} color="#fff" />
+            </TouchableOpacity>
+          ),
+        }}
+      />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <Image source={{ uri: selectedRecipe.thumbnail }} style={styles.heroImage} />
 
@@ -138,6 +153,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -8,
   },
   loadingContainer: {
     flex: 1,

@@ -3,7 +3,7 @@
     "name": "Pantry Pal",
     "slug": "pantry-pal",
     "owner": "turtlecreekllc",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +21,7 @@
         "NSCameraUsageDescription": "Pantry Pal needs camera access to scan product barcodes",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "android": {
       "adaptiveIcon": {
