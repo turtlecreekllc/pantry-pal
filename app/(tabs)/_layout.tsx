@@ -75,12 +75,31 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="chat"
+          options={{
+            title: 'Chat',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="chatbubbles" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="grocery"
+          options={{
+            title: 'Grocery',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="cart" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="saved"
           options={{
             title: 'Saved',
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="heart" size={size} color={color} />
             ),
+            tabBarItemStyle: { display: 'none' },
           }}
         />
         <Tabs.Screen

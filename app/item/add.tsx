@@ -70,6 +70,7 @@ export default function AddItemScreen() {
         nutrition_json: nutrition,
         location,
         location_notes: null,
+        fill_level: null,
         original_quantity: quantity,
         usage_history: [],
       });

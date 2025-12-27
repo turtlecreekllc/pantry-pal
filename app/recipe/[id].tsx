@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,27 @@ import { useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-rout
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../hooks/useRecipes';
+import { useSavedRecipes } from '../../hooks/useSavedRecipes';
 import { EmptyState } from '../../components/EmptyState';
+import { StarRating } from '../../components/ui/StarRating';
+import { RecipeSource } from '../../lib/types';
 
 export default function RecipeDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
   const router = useRouter();
   const { selectedRecipe, loading, error, fetchRecipeDetails, clearSelectedRecipe } = useRecipes();
+  const { savedRecipes, isRecipeSaved, saveRecipe, unsaveRecipe, updateRecipeRating } = useSavedRecipes();
+
+  // Get saved recipe data for rating
+  const recipeSource: RecipeSource = id?.startsWith('spoonacular-') ? 'spoonacular' : 'themealdb';
+  const savedRecipe = useMemo(() => {
+    return savedRecipes.find(
+      (r) => r.recipe_id === id && r.recipe_source === recipeSource
+    );
+  }, [savedRecipes, id, recipeSource]);
+
+  const isSaved = id ? isRecipeSaved(id, recipeSource) : false;
 
   useEffect(() => {
     if (id) {
@@ -43,6 +57,28 @@ export default function RecipeDetailsScreen() {
   const handleViewSource = () => {
     if (selectedRecipe?.source) {
       Linking.openURL(selectedRecipe.source);
+    }
+  };
+
+  const handleToggleSave = async () => {
+    if (!selectedRecipe || !id) return;
+    try {
+      if (isSaved) {
+        await unsaveRecipe(id, recipeSource);
+      } else {
+        await saveRecipe({ ...selectedRecipe, recipeSource }, recipeSource);
+      }
+    } catch (error) {
+      console.error('Error toggling save:', error);
+    }
+  };
+
+  const handleRatingChange = async (rating: number) => {
+    if (!savedRecipe) return;
+    try {
+      await updateRecipeRating(savedRecipe.id, rating === 0 ? null as any : rating);
+    } catch (error) {
+      console.error('Error updating rating:', error);
     }
   };
 
@@ -83,6 +119,19 @@ export default function RecipeDetailsScreen() {
               <Ionicons name="chevron-back" size={28} color="#fff" />
             </TouchableOpacity>
           ),
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={handleToggleSave}
+              style={styles.saveButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={isSaved ? 'heart' : 'heart-outline'}
+                size={24}
+                color={isSaved ? '#f44336' : '#fff'}
+              />
+            </TouchableOpacity>
+          ),
         }}
       />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -90,6 +139,18 @@ export default function RecipeDetailsScreen() {
 
         <View style={styles.content}>
           <Text style={styles.title}>{selectedRecipe.name}</Text>
+
+          {/* Rating section - only show when saved */}
+          {isSaved && (
+            <View style={styles.ratingSection}>
+              <Text style={styles.ratingLabel}>Your Rating</Text>
+              <StarRating
+                rating={savedRecipe?.rating || null}
+                onChange={handleRatingChange}
+                size={28}
+              />
+            </View>
+          )}
 
           <View style={styles.badges}>
             {selectedRecipe.category && (
@@ -160,6 +221,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: -8,
+  },
+  saveButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -8,
+  },
+  ratingSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f5f5f5',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  ratingLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
   },
   loadingContainer: {
     flex: 1,

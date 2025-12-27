@@ -1,0 +1,206 @@
+Product Requirements Documents
+Pantry Pal - AI-Powered Features
+Version 1.0 | December 2025
+Document Contents
+1. PRD-001: Smart Receipt Scanner
+2. PRD-002: Smart Photo Scanner
+3. PRD-003: Chat with Your Pantry
+
+
+  PRD-001: Smart Receipt Scanner
+Feature NameSmart Receipt ScannerPriorityP0 - Core Feature (MVP)Target ReleaseV1.0 LaunchOwnerProduct Team1. Overview
+1.1 Problem Statement
+Users find manual pantry entry tedious and time-consuming. Competitor research shows this is the #1 reason for app abandonment. After a grocery trip, users have 10-50 items to enter, creating significant friction. Most users give up before completing initial pantry setup.
+1.2 Solution
+Enable users to photograph their grocery receipt and have AI automatically extract product names, quantities, and volumes. Present results in an intuitive card-based review flow that allows quick confirmation or editing before adding to pantry.
+1.3 Success Metrics
+• Adoption Rate: 60%+ of users try receipt scanning within first week
+• Accuracy Rate: 85%+ of items correctly identified without user correction
+• Completion Rate: 90%+ of started scans completed through review flow
+• Time Savings: 70% reduction in time vs. manual entry for 20+ item receipts
+2. User Stories
+US-001: Quick Receipt Capture
+As a user returning from grocery shopping, I want to quickly photograph my receipt so that I can add all items to my pantry without typing each one.
+US-002: Review and Confirm
+As a user reviewing scanned items, I want to see each item as a card I can quickly approve or edit so that I maintain accurate inventory without tedious corrections.
+US-003: Bulk Accept
+As a busy user, I want to accept all high-confidence items at once so that I only spend time on items that need attention.
+US-004: Multi-Receipt Session
+As a user with multiple receipts, I want to scan additional receipts before finalizing so that I can batch process a full shopping trip.
+3. Functional Requirements
+3.1 Receipt Capture
+IDRequirementFR-101User can access receipt scanner from home screen FAB or add menuFR-102Camera opens with receipt-optimized framing guide (vertical rectangle)FR-103Auto-capture when receipt edges detected and image is stableFR-104Manual capture button available for difficult lighting/anglesFR-105Support for long receipts: multiple photos stitched or scroll-captureFR-106Option to select existing photo from gallery3.2 AI Processing
+IDRequirementFR-201Display processing indicator with estimated time ("Analyzing receipt...")FR-202AI extracts: Product name, Quantity, Unit/Volume, Price (optional)FR-203AI normalizes abbreviated product names ("ORG BAN" ? "Organic Bananas")FR-204AI assigns confidence score to each item: High (90%+), Medium (70-89%), Low (<70%)FR-205AI matches items to existing pantry products when possibleFR-206AI estimates expiration dates based on product categoryFR-207AI filters non-food items (bags, coupons, tax) with option to includeFR-208Processing completes within 10 seconds for typical receipt (20 items)3.3 Card Review Flow
+IDRequirementFR-301Display summary screen: "Found X items" with breakdown by confidence levelFR-302"Accept All High Confidence" button to bulk-approve 90%+ itemsFR-303Card displays: Product name, Quantity, Volume/Unit, Category, Estimated expirationFR-304Confidence indicator visible on each card (green/yellow/red dot or bar)FR-305Swipe right or tap checkmark to accept itemFR-306Swipe left or tap X to reject/skip itemFR-307Tap card to expand and edit any field inlineFR-308Progress indicator shows: "12 of 24 reviewed"FR-309"Undo" available for last actionFR-310Session can be paused and resumed (draft state saved)FR-311"Add Another Receipt" option before finalizingFR-312Completion screen: "Added X items to pantry" with summary3.4 Learning & Improvement
+IDRequirementFR-401User corrections are stored to improve future recognitionFR-402System learns store-specific abbreviations from correctionsFR-403Frequently purchased items auto-populate with user preferences4. UX Specifications
+4.1 User Flow
+1. Entry: User taps "Add Items" ? "Scan Receipt"
+2. Capture: Camera with alignment guide ? Auto/manual capture
+3. Processing: Loading animation with fun copy ("Finding your groceries...")
+4. Summary: "Found 24 items" with confidence breakdown + bulk accept option
+5. Review: Card stack with swipe left/right/tap to edit
+6. Complete: Success screen with option to add another receipt
+7. Confirm: Final summary ? Items added to pantry
+4.2 Card Design
+Each review card contains:
+• Header: Product name (editable) + confidence indicator
+• Body: Quantity stepper | Volume/unit dropdown | Category selector
+• Footer: Estimated expiration (editable) | Storage location
+• Actions: Accept (?) | Reject (?) | Expand to edit
+4.3 Gesture Interactions
+GestureActionSwipe RightAccept item ? Green flash ? Next cardSwipe LeftReject/Skip item ? Red flash ? Next cardTap CardExpand card to full edit modeSwipe Down (expanded)Collapse back to card viewShakeUndo last action5. Edge Cases & Error Handling
+ScenarioHandlingBlurry/unreadable receipt"Some items couldn't be read. Try retaking in better lighting." Option to continue with partial results.Very long receiptPrompt to take multiple photos. "Receipt is long! Take photos of each section."Non-grocery receipt"This doesn't look like a grocery receipt. Try a different photo?"No items detected"We couldn't find any items. Try taking the photo in better lighting." Option to add items manually.Network error during processingSave image locally, retry when connected. "We'll process this when you're back online."User abandons mid-reviewAuto-save draft. "You have an unfinished receipt scan" prompt on next app open.Duplicate items detected"You already have Milk in your pantry. Add more or replace?" Options: Add quantity, Replace, Skip6. Technical Considerations
+6.1 AI/ML Pipeline
+• OCR Engine: Claude Vision API or Google Cloud Vision for text extraction
+• NLP Processing: Claude API for product name normalization and categorization
+• Confidence Scoring: Ensemble of OCR confidence + product database match score
+• Edge Processing: Consider on-device OCR for privacy and speed (future)
+6.2 Data Schema
+ReceiptScan object:
+{ id, userId, imageUrl, storeDetected, dateScanned, items[], status }
+ReceiptItem object:
+{ id, rawText, normalizedName, quantity, unit, price, category, confidence, userEdited, pantryItemId }
+
+
+  PRD-002: Smart Photo Scanner
+Feature NameSmart Photo Scanner (Pantry Vision)PriorityP0 - Core Feature (MVP)Target ReleaseV1.0 LaunchOwnerProduct Team1. Overview
+1.1 Problem Statement
+New users face a cold-start problem: their pantry is full of items, but manually entering each one is overwhelming. For existing pantry contents (not fresh from store), there's no receipt to scan. Users need a fast way to "bootstrap" their pantry inventory from what they already have.
+1.2 Solution
+Allow users to photograph their cupboard, refrigerator, or pantry shelves. AI analyzes the image to identify visible products, estimate quantities, and infer volumes. Users review and confirm via the same card-based flow as receipt scanning, building their inventory in minutes instead of hours.
+1.3 Success Metrics
+• Onboarding Completion: 50%+ of new users complete initial pantry setup using photo scan
+• Items per Session: Average 15+ items added per photo scan session
+• Recognition Accuracy: 70%+ of visible items correctly identified
+• Time to Value: <5 minutes from app install to functional pantry
+2. User Stories
+US-101: New User Onboarding
+As a new user setting up Pantry Pal, I want to photograph my pantry shelves so that I can quickly build my initial inventory without tedious manual entry.
+US-102: Multi-Zone Scanning
+As a user with items in multiple locations, I want to scan my fridge, freezer, and pantry in one session so that my complete inventory is captured efficiently.
+US-103: Quantity Estimation
+As a user reviewing scanned items, I want to easily adjust quantity estimates (half jar, mostly full) so that my inventory accurately reflects what I have.
+US-104: Unidentified Items
+As a user with items AI couldn't identify, I want to tap on the photo to identify and add them manually so that nothing is missed.
+3. Functional Requirements
+3.1 Photo Capture
+IDRequirementFR-501Access via "Add Items" ? "Scan Shelf" or onboarding flowFR-502Camera opens with horizontal framing guide optimized for shelvesFR-503Tips overlay: "Include product labels" "Good lighting helps"FR-504Capture multiple photos in sequence ("Tap + to add another shelf")FR-505Location selector before/during capture: Pantry, Fridge, Freezer, Spice Rack, OtherFR-506Photo gallery access for existing photosFR-507Flash/torch control for dark cupboards3.2 AI Visual Analysis
+IDRequirementFR-601AI identifies individual products from visual appearance and labelsFR-602AI extracts: Product name, Brand (if visible), Category, Estimated sizeFR-603AI estimates quantity visible (e.g., "3 cans", "1 box")FR-604AI estimates fill level for visible containers (Full, 3/4, 1/2, 1/4, Almost Empty)FR-605AI provides bounding boxes for identified items (for "What's this?" feature)FR-606AI estimates expiration based on product type and typical shelf lifeFR-607AI assigns confidence scores: High/Medium/Low for each detectionFR-608Processing completes within 15 seconds per imageFR-609AI deduplicates items across multiple photos of same area3.3 Review Flow
+IDRequirementFR-701Summary screen: "Found X items in Y photos" with confidence breakdownFR-702Card shows: Product image thumbnail (cropped from photo), Name, Quantity, LocationFR-703Fill level selector: Slider or segmented control (Full ? Empty)FR-704Quantity stepper (+/-) for countable itemsFR-705Same swipe left/right/tap gestures as receipt scannerFR-706"Accept All" and "Accept High Confidence" bulk actionsFR-707"Scan More" option to add additional shelves/areas3.4 "What's This?" Feature
+IDRequirementFR-801After review, show original photo with detected items highlightedFR-802User can tap on unidentified areas to manually add itemsFR-803Draw bounding box ? Opens quick-add form ? AI attempts secondary recognitionFR-804"Something I missed?" prompt after card review completion4. UX Specifications
+4.1 Onboarding Integration
+For new users, Photo Scanner should be prominently featured in onboarding:
+1. Welcome screen ? "Let's set up your pantry"
+2. Option A: "?? Scan my shelves" (recommended, highlighted)
+3. Option B: "?? Scan a receipt"
+4. Option C: "?? Add items manually"
+5. Option D: "?? Skip for now"
+4.2 Quantity Estimation UI
+For items where quantity is estimated:
+• Countable items: Stepper with +/- buttons (1, 2, 3...)
+• Containers: Fill level slider (Empty ? ? Full) with visual representation
+• Bulk items: Approximate weight/volume selector
+• Visual: Show jar/container icon that fills based on selection
+4.3 Location Zones
+Pre-defined storage zones with icons:
+ZoneIconDefault Expiry AdjustmentPantry??? Cabinet/ShelfStandard shelf lifeRefrigerator?? FridgeShorter (perishables)Freezer?? SnowflakeExtended (frozen)Spice Rack?? HerbsLong (dried spices)Counter?? Fruit BowlShort (produce)5. Edge Cases & Error Handling
+ScenarioHandlingCluttered/overlapping itemsAI provides best guesses, lower confidence. "What's This?" flow for missed items.Dark cupboard/poor lightingPrompt to use flash. "This looks a bit dark. Try turning on your flash?"Unlabeled containersGeneric identification ("Container - unknown") with prompt to identify.Non-food items visibleFilter out obvious non-food (cleaning supplies, etc.) with option to include.No items detected"We couldn't identify any items. Try a different angle or add items manually."Very full/complex shelf"This shelf has a lot! Consider taking closer photos of sections."6. Technical Considerations
+6.1 AI/ML Pipeline
+• Vision Model: Claude Vision API for object detection and recognition
+• Product Database: Match against product image database for brand identification
+• Bounding Boxes: Return coordinates for each detected item
+• Deduplication: Cross-reference items across multiple photos using visual similarity
+6.2 Privacy Considerations
+• Photos processed server-side but NOT permanently stored after processing
+• Cropped thumbnails stored only for user reference (can be disabled)
+• Clear privacy disclosure before first use
+
+
+  PRD-003: Chat with Your Pantry
+Feature NameChat with Your Pantry (Pantry Pal AI Assistant)PriorityP1 - Key Differentiator (V1.5 / Post-MVP)Target ReleaseV1.5 (1-2 months post-launch)OwnerProduct Team1. Overview
+1.1 Problem Statement
+Users have a wealth of pantry data but limited ways to interact with it. Current pantry apps require users to navigate menus, apply filters, and manually search for recipes. This creates friction and reduces the utility of the inventory data they've carefully built. Users want to simply ask questions and get answers.
+1.2 Solution
+A conversational AI interface that allows natural language interaction with pantry data. Users can ask questions, request recipes, update inventory, and get proactive suggestions—all through a chat-like experience. The AI acts as a knowledgeable kitchen companion that knows what's in your pantry, what's expiring, and what you can cook.
+1.3 Success Metrics
+• Engagement: 40%+ of weekly active users interact with chat at least once per week
+• Task Completion: 80%+ of queries result in actionable response (recipe, update, info)
+• Satisfaction: 4.5+ star rating on in-app feedback for chat feature
+• Retention Impact: Users who use chat have 30%+ higher 30-day retention
+2. User Stories
+US-201: Recipe Discovery
+As a user wondering what to cook, I want to ask "What can I make for dinner tonight?" so that I get personalized suggestions based on my actual inventory.
+US-202: Expiration Queries
+As a user concerned about food waste, I want to ask "What's about to expire?" so that I can prioritize using those items.
+US-203: Voice Inventory Updates
+As a user with messy hands while cooking, I want to say "I just used the last of the olive oil" so that my inventory updates without touching my phone.
+US-204: Craving-Based Search
+As a user with a specific craving, I want to say "I want something spicy with chicken" so that I get recipes matching my mood and ingredients.
+US-205: Shopping List Management
+As a user planning shopping, I want to say "Add milk and eggs to my shopping list" so that I can manage my list hands-free.
+US-206: Pantry Queries
+As a user at the store, I want to ask "Do I have pasta at home?" so that I avoid buying duplicates.
+3. Conversation Capabilities
+3.1 Query Categories
+CategoryExample QueriesPriorityRecipe Discovery"What can I make for dinner?" "Give me a quick lunch idea" "Something with chicken and rice"P0 - CoreExpiration Queries"What's expiring soon?" "Anything I should use this week?" "What about that yogurt?"P0 - CoreInventory Updates"I just used the milk" "Add 2 cans of tomatoes" "We're out of eggs"P0 - CorePantry Queries"Do I have butter?" "How much rice is left?" "What's in my freezer?"P0 - CoreShopping List"Add milk to my list" "What do I need to buy?" "Remove the bread"P1 - ImportantSubstitutions"I don't have buttermilk" "What can I use instead of eggs?" "Substitute for soy sauce?"P1 - ImportantMeal Planning"Plan my meals for the week" "What should we eat Monday?" "Suggest 3 dinners"P2 - FutureNutrition/Dietary"Something low-carb" "Vegetarian options?" "High protein meal with what I have"P2 - FutureHistory/Insights"What did we eat last Tuesday?" "How often do I buy milk?" "My most wasted items?"P2 - Future3.2 Conversation Context
+The AI maintains context awareness including:
+• Pantry State: All items, quantities, locations, expiration dates
+• User Preferences: Dietary restrictions, cooking skill, time constraints
+• Conversation History: Previous messages in current session
+• Time Awareness: Current time of day, day of week
+• Recent Activity: Recently cooked recipes, recent updates
+4. Functional Requirements
+4.1 Chat Interface
+IDRequirementFR-901Chat accessible via bottom navigation "Chat" tab or FABFR-902Chat bubble interface with user messages right-aligned, AI responses left-alignedFR-903Text input field with send buttonFR-904Microphone button for voice input (speech-to-text)FR-905Typing indicator while AI processes responseFR-906Suggested prompts shown when chat is empty (onboarding)FR-907Quick action chips after AI response (e.g., "Show recipe" "Add to plan")FR-908Conversation history persists within session, clears on app close (or configurable)4.2 AI Response Behavior
+IDRequirementFR-1001Responses are concise and conversational (not robotic)FR-1002AI has a friendly, helpful personality ("kitchen companion" tone)FR-1003Recipe suggestions include: Name, brief description, time estimate, missing ingredients (if any)FR-1004Inventory updates confirmed with feedback ("Got it! Removed milk from your fridge.")FR-1005Expiration queries highlight urgency ("Your yogurt expires tomorrow!")FR-1006When ambiguous, AI asks clarifying questionsFR-1007Response time < 3 seconds for 90th percentile queriesFR-1008Graceful degradation if AI service unavailable4.3 Rich Responses
+IDRequirementFR-1101Recipe cards inline with image, title, time, and "View Recipe" buttonFR-1102Item lists rendered as tappable chips (e.g., expiring items)FR-1103Confirmation actions as buttons ("Yes, remove it" / "No, keep it")FR-1104Quick actions: "More like this" "Different options" "Add to meal plan"4.4 Voice Capabilities
+IDRequirementFR-1201Tap-and-hold microphone for voice inputFR-1202Visual waveform feedback during recordingFR-1203Transcribed text shown in input field before sending (editable)FR-1204Optional: Text-to-speech for AI responses (accessibility)FR-1205Future: Siri Shortcuts integration ("Hey Siri, ask Pantry Pal what I can make")5. Personality & Tone Guidelines
+The AI should feel like a knowledgeable, friendly kitchen companion—not a robotic assistant.
+5.1 Voice Characteristics
+• Friendly: Warm and approachable, like a helpful friend
+• Knowledgeable: Confident about food and cooking, offers useful tips
+• Concise: Gets to the point, respects user's time
+• Encouraging: Positive about food waste reduction, celebrates wins
+• Adaptive: Matches user's energy (brief responses for quick queries, detailed for complex)
+5.2 Example Responses
+User: "What can I make for dinner?"
+AI: "You've got chicken, rice, and those bell peppers that should be used soon! How about a quick chicken stir-fry? Takes about 25 minutes. Want the recipe?"
+User: "I just used the last of the olive oil"
+AI: "Got it! I've removed olive oil from your pantry. Want me to add it to your shopping list?"
+User: "What's about to expire?"
+AI: "Heads up! Your yogurt expires tomorrow, and those bananas are getting spotty. Perfect time for banana bread or a smoothie bowl! ??"
+User: "Do I have pasta?"
+AI: "Yep! You've got spaghetti and penne in the pantry. Looks like about half a box of each."
+6. Technical Architecture
+6.1 System Components
+• Speech-to-Text: Device native (iOS Speech, Android Speech) or Whisper API
+• LLM: Claude API with function calling for structured actions
+• Context Injection: Pantry state, user prefs, conversation history passed to each query
+• Action Layer: Function calls to update pantry, shopping list, etc.
+• Recipe Engine: Matching algorithm + AI generation for custom recipes
+6.2 Function Calling Schema
+The AI can execute these actions via function calls:
+• get_pantry_items(location?, category?, expiring_within_days?)
+• update_item_quantity(item_id, new_quantity)
+• remove_item(item_id)
+• add_item(name, quantity, location, expiration?)
+• search_recipes(ingredients[], constraints?, time_max?)
+• add_to_shopping_list(item_name, quantity?)
+• get_shopping_list()
+• get_expiring_items(days)
+7. Edge Cases & Guardrails
+ScenarioHandlingAmbiguous item reference"I see 2 types of milk - whole and oat. Which one did you use?"Empty pantry"Your pantry is looking pretty empty! Want to add some items or scan a receipt?"Off-topic queriesGently redirect: "I'm best at helping with food and recipes! What can I help you cook?"Harmful/inappropriate requestsStandard content filtering. "I can only help with food-related questions."API/Service unavailable"I'm having trouble connecting right now. Try again in a moment?"No matching recipes"Hmm, I couldn't find a great match. Here are some options if you pick up a few things..."Conflicting dietary restrictions"That recipe has dairy, but I know you're avoiding it. Want a dairy-free version?"
+
+Appendix: Suggested Prompts (Onboarding)
+When chat is empty, show these as tappable suggestions:
+• "What can I make for dinner?" ???
+• "What's expiring soon?" ?
+• "Something quick with chicken" ??
+• "Do I have eggs?" ??
+• "Add milk to my shopping list" ??
+• "I just finished the pasta" ?
+— End of Document —
+Pantry Pal | Product Requirements Document
+
+Page 1 of 2
+

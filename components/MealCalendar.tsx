@@ -149,7 +149,7 @@ export function MealCalendar({
       </View>
 
       {/* Selected Day Detail */}
-      <ScrollView style={styles.dayDetail}>
+      <ScrollView style={styles.dayDetail} contentContainerStyle={styles.dayDetailContent}>
         <Text style={styles.dayDetailTitle}>
           {selectedDate.toLocaleDateString('en-US', {
             weekday: 'long',
@@ -321,9 +321,12 @@ const styles = StyleSheet.create({
   },
   dayDetail: {
     flex: 1,
-    padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
+  },
+  dayDetailContent: {
+    padding: 16,
+    paddingBottom: 40,
   },
   dayDetailTitle: {
     fontSize: 16,

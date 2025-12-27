@@ -180,9 +180,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   inputContainerCompact: {
-    paddingVertical: 8,
+    height: 48,
+    paddingVertical: 0,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   dateText: {
     flex: 1,

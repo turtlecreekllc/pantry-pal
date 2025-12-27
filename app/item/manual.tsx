@@ -57,6 +57,7 @@ export default function ManualEntryScreen() {
         nutrition_json: null,
         location,
         location_notes: null,
+        fill_level: null,
         original_quantity: quantity,
         usage_history: [],
       });

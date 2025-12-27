@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   Text,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -35,6 +36,14 @@ export function ExpandableFAB({ actions }: ExpandableFABProps) {
     setExpanded(!expanded);
   };
 
+  const handleActionPress = (action: FABAction) => {
+    toggleExpanded();
+    // Small delay to allow menu to close before navigation
+    setTimeout(() => {
+      action.onPress();
+    }, 100);
+  };
+
   const rotation = animation.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '45deg'],
@@ -50,62 +59,16 @@ export function ExpandableFAB({ actions }: ExpandableFABProps) {
       {expanded && (
         <Animated.View
           style={[styles.backdrop, { opacity: backdropOpacity }]}
-          pointerEvents={expanded ? 'auto' : 'none'}
         >
-          <TouchableOpacity
+          <Pressable
             style={StyleSheet.absoluteFill}
-            activeOpacity={1}
             onPress={toggleExpanded}
           />
         </Animated.View>
       )}
 
-      <View style={styles.container}>
-        {actions.map((action, index) => {
-          const translateY = animation.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0, -((index + 1) * 64)],
-          });
-
-          const scale = animation.interpolate({
-            inputRange: [0, 0.5, 1],
-            outputRange: [0, 0.5, 1],
-          });
-
-          const opacity = animation.interpolate({
-            inputRange: [0, 0.5, 1],
-            outputRange: [0, 0, 1],
-          });
-
-          return (
-            <Animated.View
-              key={action.label}
-              style={[
-                styles.actionContainer,
-                {
-                  transform: [{ translateY }, { scale }],
-                  opacity,
-                },
-              ]}
-              pointerEvents={expanded ? 'auto' : 'none'}
-            >
-              <View style={styles.labelContainer}>
-                <Text style={styles.actionLabel}>{action.label}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => {
-                  toggleExpanded();
-                  action.onPress();
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name={action.icon} size={24} color="#fff" />
-              </TouchableOpacity>
-            </Animated.View>
-          );
-        })}
-
+      <View style={styles.container} pointerEvents="box-none">
+        {/* Main FAB button */}
         <TouchableOpacity
           style={styles.fab}
           onPress={toggleExpanded}
@@ -115,6 +78,53 @@ export function ExpandableFAB({ actions }: ExpandableFABProps) {
             <Ionicons name="add" size={32} color="#fff" />
           </Animated.View>
         </TouchableOpacity>
+
+        {/* Action buttons - rendered in separate container above FAB */}
+        {expanded && (
+          <View style={styles.actionsWrapper} pointerEvents="box-none">
+            {actions.map((action, index) => {
+              const translateY = animation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, -((index + 1) * 64)],
+              });
+
+              const scale = animation.interpolate({
+                inputRange: [0, 0.5, 1],
+                outputRange: [0, 0.5, 1],
+              });
+
+              const opacity = animation.interpolate({
+                inputRange: [0, 0.5, 1],
+                outputRange: [0, 0, 1],
+              });
+
+              return (
+                <Animated.View
+                  key={action.label}
+                  style={[
+                    styles.actionContainer,
+                    {
+                      transform: [{ translateY }, { scale }],
+                      opacity,
+                    },
+                  ]}
+                >
+                  <Pressable
+                    style={styles.actionRow}
+                    onPress={() => handleActionPress(action)}
+                  >
+                    <View style={styles.labelContainer}>
+                      <Text style={styles.actionLabel}>{action.label}</Text>
+                    </View>
+                    <View style={styles.actionButton}>
+                      <Ionicons name={action.icon} size={22} color="#fff" />
+                    </View>
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
+          </View>
+        )}
       </View>
     </>
   );
@@ -124,12 +134,14 @@ const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 1,
   },
   container: {
     position: 'absolute',
     right: 16,
     bottom: 16,
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    zIndex: 2,
   },
   fab: {
     width: 56,
@@ -144,16 +156,25 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 8,
   },
+  actionsWrapper: {
+    position: 'absolute',
+    bottom: 56,
+    right: 0,
+    alignItems: 'flex-end',
+  },
   actionContainer: {
     position: 'absolute',
+    bottom: 0,
+    right: 0,
+  },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    bottom: 0,
   },
   actionButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#4CAF50',
     alignItems: 'center',
     justifyContent: 'center',
@@ -166,8 +187,8 @@ const styles = StyleSheet.create({
   labelContainer: {
     backgroundColor: '#fff',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
+    paddingVertical: 8,
+    borderRadius: 6,
     marginRight: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },

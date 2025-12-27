@@ -8,6 +8,7 @@ import {
   TextInput,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +16,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSavedRecipes } from '../../hooks/useSavedRecipes';
 import { useMealPlans } from '../../hooks/useMealPlans';
 import { useRecipes } from '../../hooks/useRecipes';
-import { SavedRecipe, MealType, RecipePreview, RecipeSource } from '../../lib/types';
+import { usePantry } from '../../hooks/usePantry';
+import { useGroceryList } from '../../hooks/useGroceryList';
+import { MealIngredientMatcher } from '../../components/MealIngredientMatcher';
+import { getRecipeDetails } from '../../lib/recipeService';
+import { SavedRecipe, MealType, RecipePreview, RecipeSource, ExtendedRecipe, IngredientDeduction } from '../../lib/types';
 
 export default function AddMealScreen() {
   const router = useRouter();
@@ -23,10 +28,21 @@ export default function AddMealScreen() {
   const { savedRecipes } = useSavedRecipes();
   const { addMealPlan } = useMealPlans();
   const { recipes, searchRecipes, loading } = useRecipes();
+  const { pantryItems, useItem } = usePantry();
+  const { addGroceryItem } = useGroceryList();
 
   const [searchText, setSearchText] = useState('');
   const [servings, setServings] = useState(1);
   const [activeTab, setActiveTab] = useState<'saved' | 'search'>('saved');
+  const [showMatcher, setShowMatcher] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<ExtendedRecipe | null>(null);
+  const [pendingMealData, setPendingMealData] = useState<{
+    recipe_id: string;
+    recipe_source: RecipeSource;
+    recipe_name: string;
+    recipe_thumbnail: string;
+  } | null>(null);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
 
   const mealType = params.mealType as MealType;
   const date = params.date;
@@ -46,24 +62,15 @@ export default function AddMealScreen() {
   };
 
   const handleSelectSavedRecipe = async (recipe: SavedRecipe) => {
-    try {
-      await addMealPlan({
-        date,
-        meal_type: mealType,
-        recipe_id: recipe.recipe_id,
-        recipe_source: recipe.recipe_source,
-        recipe_name: recipe.recipe_data.name,
-        recipe_thumbnail: recipe.recipe_data.thumbnail,
-        servings,
-        notes: null,
-        is_completed: false,
-        completed_at: null,
-      });
-      router.back();
-    } catch (error) {
-      console.error('Error adding meal:', error);
-      Alert.alert('Error', 'Failed to add meal to plan');
-    }
+    // Use the saved recipe data directly since it has ingredients
+    setSelectedRecipe(recipe.recipe_data);
+    setPendingMealData({
+      recipe_id: recipe.recipe_id,
+      recipe_source: recipe.recipe_source,
+      recipe_name: recipe.recipe_data.name,
+      recipe_thumbnail: recipe.recipe_data.thumbnail,
+    });
+    setShowMatcher(true);
   };
 
   const handleSelectSearchRecipe = async (recipe: RecipePreview) => {
@@ -71,24 +78,86 @@ export default function AddMealScreen() {
       ? 'spoonacular'
       : 'themealdb';
 
+    // Fetch full recipe details to get ingredients
+    setLoadingRecipe(true);
     try {
-      await addMealPlan({
-        date,
-        meal_type: mealType,
-        recipe_id: recipe.id,
-        recipe_source: source,
-        recipe_name: recipe.name,
-        recipe_thumbnail: recipe.thumbnail,
-        servings,
-        notes: null,
-        is_completed: false,
-        completed_at: null,
-      });
+      const fullRecipe = await getRecipeDetails(recipe.id);
+      if (fullRecipe) {
+        setSelectedRecipe(fullRecipe);
+        setPendingMealData({
+          recipe_id: recipe.id,
+          recipe_source: source,
+          recipe_name: recipe.name,
+          recipe_thumbnail: recipe.thumbnail,
+        });
+        setShowMatcher(true);
+      } else {
+        Alert.alert('Error', 'Could not load recipe details');
+      }
+    } catch (error) {
+      console.error('Error loading recipe:', error);
+      Alert.alert('Error', 'Failed to load recipe details');
+    } finally {
+      setLoadingRecipe(false);
+    }
+  };
+
+  const handleConfirmDeductions = async (deductions: IngredientDeduction[]) => {
+    if (!pendingMealData) return;
+
+    try {
+      await addMealPlan(
+        {
+          date,
+          meal_type: mealType,
+          recipe_id: pendingMealData.recipe_id,
+          recipe_source: pendingMealData.recipe_source,
+          recipe_name: pendingMealData.recipe_name,
+          recipe_thumbnail: pendingMealData.recipe_thumbnail,
+          servings,
+          notes: null,
+          is_completed: false,
+          completed_at: null,
+          ingredient_deductions: deductions.length > 0 ? deductions : null,
+        },
+        {
+          deductions,
+          onDeduct: useItem,
+        }
+      );
+      setShowMatcher(false);
       router.back();
     } catch (error) {
       console.error('Error adding meal:', error);
       Alert.alert('Error', 'Failed to add meal to plan');
     }
+  };
+
+  const handleAddToGrocery = async (ingredient: string, amount: string) => {
+    try {
+      // Parse amount string like "1.5 cup" into quantity and unit
+      const match = amount.match(/^([\d.]+)\s*(.*)$/);
+      const quantity = match ? parseFloat(match[1]) : 1;
+      const unit = match ? match[2].trim() || 'item' : 'item';
+
+      await addGroceryItem({
+        name: ingredient,
+        quantity,
+        unit,
+        recipe_id: pendingMealData?.recipe_id || null,
+        recipe_name: pendingMealData?.recipe_name || null,
+        is_checked: false,
+      });
+      Alert.alert('Added', `${ingredient} added to grocery list`);
+    } catch (error) {
+      console.error('Error adding to grocery:', error);
+    }
+  };
+
+  const handleCancelMatcher = () => {
+    setShowMatcher(false);
+    setSelectedRecipe(null);
+    setPendingMealData(null);
   };
 
   const formatDate = (dateStr: string) => {
@@ -257,6 +326,25 @@ export default function AddMealScreen() {
           }
         />
       )}
+
+      {/* Loading overlay */}
+      {loadingRecipe && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <Text style={styles.loadingText}>Loading recipe...</Text>
+        </View>
+      )}
+
+      {/* Ingredient Matcher Modal */}
+      <MealIngredientMatcher
+        visible={showMatcher}
+        recipe={selectedRecipe}
+        pantryItems={pantryItems}
+        servings={servings}
+        onConfirm={handleConfirmDeductions}
+        onCancel={handleCancelMatcher}
+        onAddToGrocery={handleAddToGrocery}
+      />
     </SafeAreaView>
   );
 }
@@ -397,5 +485,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     marginTop: 4,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
   },
 });

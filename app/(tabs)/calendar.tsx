@@ -16,8 +16,8 @@ export default function CalendarScreen() {
   const [recipeForCompletion, setRecipeForCompletion] = useState<ExtendedRecipe | null>(null);
   const [isLoadingRecipe, setIsLoadingRecipe] = useState(false);
 
-  const { mealPlans, completeMeal, refreshMealPlans } = useMealPlans();
-  const { pantryItems, refreshPantry } = usePantry();
+  const { mealPlans, completeMeal, deleteMealPlan, refreshMealPlans } = useMealPlans();
+  const { pantryItems, restoreItem, refreshPantry } = usePantry();
 
   const handleAddMeal = (date: string, mealType: MealType) => {
     router.push({
@@ -59,9 +59,13 @@ export default function CalendarScreen() {
   };
 
   const handleDeleteMeal = async (meal: MealPlan) => {
+    const hasDeductions = meal.ingredient_deductions && meal.ingredient_deductions.length > 0;
+
     Alert.alert(
       'Delete Meal',
-      'Are you sure you want to remove this meal from your plan?',
+      hasDeductions
+        ? 'This will restore the deducted ingredients back to your pantry. Continue?'
+        : 'Are you sure you want to remove this meal from your plan?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -69,10 +73,12 @@ export default function CalendarScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { deleteMealPlan } = useMealPlans();
-              // We'd need the hook here - for now just refresh
-              await refreshMealPlans();
+              await deleteMealPlan(meal.id, {
+                onRestore: restoreItem,
+              });
+              await refreshPantry();
             } catch (error) {
+              console.error('Error deleting meal:', error);
               Alert.alert('Error', 'Failed to delete meal');
             }
           },

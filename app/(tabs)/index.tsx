@@ -31,6 +31,14 @@ export default function PantryScreen() {
     router.push('/item/manual');
   }, [router]);
 
+  const handleReceiptScan = useCallback(() => {
+    router.push('/scan/receipt');
+  }, [router]);
+
+  const handlePhotoScan = useCallback(() => {
+    router.push('/scan/photo');
+  }, [router]);
+
   const renderItem = useCallback(({ item }: { item: PantryItem }) => (
     <PantryItemCard item={item} onPress={() => handleItemPress(item)} />
   ), [handleItemPress]);
@@ -39,14 +47,24 @@ export default function PantryScreen() {
 
   const fabActions = [
     {
-      icon: 'create-outline' as const,
+      icon: 'pencil' as const,
       label: 'Add Manually',
       onPress: handleManualAdd,
     },
     {
-      icon: 'scan' as const,
+      icon: 'barcode-outline' as const,
       label: 'Scan Barcode',
       onPress: handleScanPress,
+    },
+    {
+      icon: 'receipt-outline' as const,
+      label: 'Scan Receipt',
+      onPress: handleReceiptScan,
+    },
+    {
+      icon: 'image-outline' as const,
+      label: 'Photo Scanner',
+      onPress: handlePhotoScan,
     },
   ];
 

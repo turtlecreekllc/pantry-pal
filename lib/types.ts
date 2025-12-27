@@ -1,3 +1,7 @@
+// Fill level options for container items
+export const FILL_LEVELS = ['full', '3/4', '1/2', '1/4', 'almost-empty'] as const;
+export type FillLevel = (typeof FILL_LEVELS)[number];
+
 // Pantry Item types
 export interface PantryItem {
   id: string;
@@ -13,6 +17,7 @@ export interface PantryItem {
   nutrition_json: NutritionInfo | null;
   location: 'pantry' | 'fridge' | 'freezer';
   location_notes: string | null;
+  fill_level: string | null; // 'full', '3/4', '1/2', '1/4', 'almost-empty'
   original_quantity: number | null;
   usage_history: UsageHistoryEntry[] | null;
   added_at: string;
@@ -23,6 +28,23 @@ export interface UsageHistoryEntry {
   amount: number;
   timestamp: string;
   note?: string;
+  recipe_id?: string;
+  recipe_name?: string;
+  meal_plan_id?: string;
+}
+
+// Grocery list item
+export interface GroceryItem {
+  id: string;
+  user_id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  recipe_id: string | null;
+  recipe_name: string | null;
+  is_checked: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface NutritionInfo {
@@ -200,6 +222,7 @@ export interface MealPlan {
   notes: string | null;
   is_completed: boolean;
   completed_at: string | null;
+  ingredient_deductions: IngredientDeduction[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -240,3 +263,56 @@ export const DIETS = [
   'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free',
   'Keto', 'Paleo', 'Low-Carb',
 ] as const;
+
+// AI Scanner types
+export interface ScannedItem {
+  id: string;
+  name: string;
+  quantity: number; // Total quantity (unitCount * volumeQuantity when both present)
+  unit: Unit;
+  unitCount?: number; // Number of packages/cans/bottles (e.g., 3 cans)
+  volumeQuantity?: number; // Size per unit (e.g., 12 oz per can)
+  volumeUnit?: Unit; // Unit for volume (oz, ml, g, etc.)
+  brand?: string;
+  category?: string;
+  confidence: number; // 0-1 confidence score from AI
+  status: 'pending' | 'accepted' | 'edited' | 'rejected';
+  fillLevel?: FillLevel; // Fill level for container items
+  expirationDate?: string; // User-entered expiration date (YYYY-MM-DD)
+  originalData?: {
+    name: string;
+    quantity: number;
+    unit: Unit;
+  };
+}
+
+export interface ReceiptScanResult {
+  items: ScannedItem[];
+  storeName?: string;
+  date?: string;
+  total?: number;
+  imageUri: string;
+}
+
+export interface PhotoScanResult {
+  items: ScannedItem[];
+  location: Location;
+  imageUri: string;
+}
+
+// Chat types
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  actions?: ChatAction[];
+  recipes?: RecipePreview[];
+  items?: PantryItem[];
+}
+
+export interface ChatAction {
+  type: 'view_recipe' | 'add_to_grocery' | 'update_item' | 'view_item';
+  label: string;
+  data: any;
+}

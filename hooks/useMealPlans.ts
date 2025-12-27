@@ -3,15 +3,24 @@ import { supabase } from '../lib/supabase';
 import { MealPlan, MealType, IngredientDeduction, RecipeSource } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 
+interface AddMealPlanOptions {
+  deductions?: IngredientDeduction[];
+  onDeduct?: (itemId: string, amount: number, options: { recipe_id?: string; recipe_name?: string; meal_plan_id: string }) => Promise<void>;
+}
+
+interface DeleteMealPlanOptions {
+  onRestore?: (itemId: string, amount: number, mealPlanId: string) => Promise<void>;
+}
+
 interface UseMealPlansReturn {
   mealPlans: MealPlan[];
   loading: boolean;
   error: string | null;
   getMealsForDate: (date: string) => MealPlan[];
   getMealsForMonth: (year: number, month: number) => MealPlan[];
-  addMealPlan: (plan: Omit<MealPlan, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  addMealPlan: (plan: Omit<MealPlan, 'id' | 'user_id' | 'created_at' | 'updated_at'>, options?: AddMealPlanOptions) => Promise<string | undefined>;
   updateMealPlan: (id: string, updates: Partial<MealPlan>) => Promise<void>;
-  deleteMealPlan: (id: string) => Promise<void>;
+  deleteMealPlan: (id: string, options?: DeleteMealPlanOptions) => Promise<void>;
   completeMeal: (id: string, deductions: IngredientDeduction[]) => Promise<void>;
   refreshMealPlans: () => Promise<void>;
 }
@@ -78,8 +87,9 @@ export function useMealPlans(): UseMealPlansReturn {
   );
 
   const addMealPlan = async (
-    plan: Omit<MealPlan, 'id' | 'user_id' | 'created_at' | 'updated_at'>
-  ) => {
+    plan: Omit<MealPlan, 'id' | 'user_id' | 'created_at' | 'updated_at'>,
+    options?: AddMealPlanOptions
+  ): Promise<string | undefined> => {
     if (!user) {
       setError('Please sign in to create meal plans');
       return;
@@ -91,6 +101,7 @@ export function useMealPlans(): UseMealPlansReturn {
         .insert({
           ...plan,
           user_id: user.id,
+          ingredient_deductions: options?.deductions || null,
         })
         .select()
         .single();
@@ -104,7 +115,25 @@ export function useMealPlans(): UseMealPlansReturn {
         throw insertError;
       }
 
+      // Apply deductions to pantry items
+      if (options?.deductions && options?.onDeduct) {
+        for (const deduction of options.deductions) {
+          if (deduction.confirmed) {
+            await options.onDeduct(
+              deduction.pantry_item_id,
+              deduction.amount_to_deduct,
+              {
+                recipe_id: plan.recipe_id || undefined,
+                recipe_name: plan.recipe_name,
+                meal_plan_id: data.id,
+              }
+            );
+          }
+        }
+      }
+
       setMealPlans((prev) => [...prev, data].sort((a, b) => a.date.localeCompare(b.date)));
+      return data.id;
     } catch (err) {
       console.error('Error adding meal plan:', err);
       setError('Failed to add meal plan');
@@ -133,10 +162,26 @@ export function useMealPlans(): UseMealPlansReturn {
     }
   };
 
-  const deleteMealPlan = async (id: string) => {
+  const deleteMealPlan = async (id: string, options?: DeleteMealPlanOptions) => {
     if (!user) return;
 
     try {
+      // Get the meal plan first to restore deductions
+      const mealPlan = mealPlans.find((m) => m.id === id);
+
+      // Restore pantry items if there were deductions
+      if (mealPlan?.ingredient_deductions && options?.onRestore) {
+        for (const deduction of mealPlan.ingredient_deductions) {
+          if (deduction.confirmed) {
+            await options.onRestore(
+              deduction.pantry_item_id,
+              deduction.amount_to_deduct,
+              id
+            );
+          }
+        }
+      }
+
       const { error: deleteError } = await supabase
         .from('meal_plans')
         .delete()
