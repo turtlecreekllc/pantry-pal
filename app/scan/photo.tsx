@@ -159,6 +159,7 @@ export default function PhotoScannerScreen() {
   const handleAccept = async (item: ScannedItem) => {
     try {
       // Ensure we have valid data for Supabase
+      // Note: fill_level column doesn't exist in the database yet
       const itemData = {
         name: item.name?.trim() || 'Unknown Item',
         quantity: typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 1,
@@ -171,7 +172,6 @@ export default function PhotoScannerScreen() {
         image_url: null,
         nutrition_json: null,
         location_notes: null,
-        fill_level: item.fillLevel || null,
         original_quantity: typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 1,
         usage_history: null,
       };

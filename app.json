@@ -3,7 +3,7 @@
     "name": "Pantry Pal",
     "slug": "pantry-pal",
     "owner": "turtle-creek-llc",
-    "version": "1.5.4",
+    "version": "1.5.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +21,7 @@
         "NSCameraUsageDescription": "Pantry Pal needs camera access to scan product barcodes",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "21",
+      "buildNumber": "22",
       "splash": {
         "backgroundColor": "#4CAF50",
         "resizeMode": "contain"

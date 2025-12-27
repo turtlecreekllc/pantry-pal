@@ -284,7 +284,7 @@ export default function ItemDetailsScreen() {
           {/* Volume Graph */}
           <VolumeGraph
             currentQuantity={quantity}
-            originalQuantity={item.original_quantity}
+            originalQuantity={item.original_quantity ?? null}
             unit={unit}
             onQuantityChange={(newQuantity) => {
               handleFieldChange(setQuantity, newQuantity);
@@ -384,7 +384,7 @@ export default function ItemDetailsScreen() {
             />
 
             {/* Usage History */}
-            <UsageHistory history={item.usage_history} unit={unit} />
+            <UsageHistory history={item.usage_history ?? null} unit={unit} />
           </View>
         </ScrollView>
 
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   compactFieldQuantity: {
-    flex: 1.5,
+    flex: 2.5,
     minWidth: 0,
   },
   compactFieldExpires: {

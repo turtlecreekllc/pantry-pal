@@ -17,9 +17,9 @@ export interface PantryItem {
   nutrition_json: NutritionInfo | null;
   location: 'pantry' | 'fridge' | 'freezer';
   location_notes: string | null;
-  fill_level: string | null; // 'full', '3/4', '1/2', '1/4', 'almost-empty'
-  original_quantity: number | null;
-  usage_history: UsageHistoryEntry[] | null;
+  fill_level?: string | null; // 'full', '3/4', '1/2', '1/4', 'almost-empty' - optional, not in all DB schemas
+  original_quantity?: number | null;
+  usage_history?: UsageHistoryEntry[] | null;
   added_at: string;
   updated_at: string;
 }
