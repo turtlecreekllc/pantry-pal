@@ -21,7 +21,7 @@
         "NSCameraUsageDescription": "Pantry Pal needs camera access to scan product barcodes",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "22",
+      "buildNumber": "23",
       "splash": {
         "backgroundColor": "#4CAF50",
         "resizeMode": "contain"

@@ -53,6 +53,8 @@ export default function ItemDetailsScreen() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState<Unit>('item');
+  const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
+  const [itemCount, setItemCount] = useState(1); // Number of items (e.g., 3 cans)
   const [location, setLocation] = useState<Location>('pantry');
   const [locationNotes, setLocationNotes] = useState('');
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
@@ -66,6 +68,10 @@ export default function ItemDetailsScreen() {
       setName(foundItem.name);
       setQuantity(foundItem.quantity);
       setUnit((foundItem.unit as Unit) || 'item');
+      setOriginalQuantity(foundItem.original_quantity ?? foundItem.quantity);
+      // Extract item count from name if present (e.g., "3x Tomato Soup" -> 3)
+      const countMatch = foundItem.name.match(/^(\d+)x\s/);
+      setItemCount(countMatch ? parseInt(countMatch[1], 10) : 1);
       setLocation(foundItem.location);
       setLocationNotes(foundItem.location_notes || '');
       setExpirationDate(
@@ -81,10 +87,19 @@ export default function ItemDetailsScreen() {
     setLoading(true);
 
     try {
+      // Format name with item count if > 1
+      let formattedName = name.trim();
+      // Remove existing count prefix if present
+      formattedName = formattedName.replace(/^\d+x\s/, '');
+      if (itemCount > 1) {
+        formattedName = `${itemCount}x ${formattedName}`;
+      }
+
       await updateItem(item.id, {
-        name: name.trim(),
+        name: formattedName,
         quantity,
         unit,
+        original_quantity: originalQuantity,
         location,
         location_notes: locationNotes.trim() || null,
         expiration_date: expirationDate?.toISOString().split('T')[0] || null,
@@ -284,10 +299,13 @@ export default function ItemDetailsScreen() {
           {/* Volume Graph */}
           <VolumeGraph
             currentQuantity={quantity}
-            originalQuantity={item.original_quantity ?? null}
+            originalQuantity={originalQuantity}
             unit={unit}
             onQuantityChange={(newQuantity) => {
               handleFieldChange(setQuantity, newQuantity);
+            }}
+            onOriginalQuantityChange={(newOriginal) => {
+              handleFieldChange(setOriginalQuantity, newOriginal);
             }}
             onScanForEstimate={() => {
               Alert.alert(
@@ -305,13 +323,45 @@ export default function ItemDetailsScreen() {
               placeholder="Product name"
             />
 
+            {/* Item Count Row */}
+            <View style={styles.itemCountRow}>
+              <Text style={styles.label}>Item Count</Text>
+              <View style={styles.itemCountControls}>
+                <TouchableOpacity
+                  style={styles.itemCountButton}
+                  onPress={() => {
+                    if (itemCount > 1) {
+                      handleFieldChange(setItemCount, itemCount - 1);
+                    }
+                  }}
+                  disabled={itemCount <= 1}
+                >
+                  <Ionicons name="remove" size={20} color={itemCount <= 1 ? '#ccc' : '#666'} />
+                </TouchableOpacity>
+                <Text style={styles.itemCountValue}>{itemCount}</Text>
+                <TouchableOpacity
+                  style={styles.itemCountButton}
+                  onPress={() => handleFieldChange(setItemCount, itemCount + 1)}
+                >
+                  <Ionicons name="add" size={20} color="#666" />
+                </TouchableOpacity>
+                <Text style={styles.itemCountLabel}>
+                  {itemCount === 1 ? 'item' : 'items'} of {quantity} {unit} each
+                </Text>
+              </View>
+            </View>
+
             <View style={styles.compactRow}>
               <View style={styles.compactFieldQuantity}>
-                <Text style={styles.label}>Quantity</Text>
+                <Text style={styles.label}>Volume per Item</Text>
                 <View style={styles.quantityUnitRow}>
                   <QuantitySelector
                     value={quantity}
-                    onChange={(value) => handleFieldChange(setQuantity, value)}
+                    onChange={(value) => {
+                      handleFieldChange(setQuantity, value);
+                      // Also update original quantity to match new volume
+                      handleFieldChange(setOriginalQuantity, value);
+                    }}
                     unit={unit}
                   />
                   <TouchableOpacity
@@ -689,5 +739,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666',
     marginVertical: 16,
+  },
+  itemCountRow: {
+    marginBottom: 16,
+  },
+  itemCountControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  itemCountButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  itemCountValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    minWidth: 30,
+    textAlign: 'center',
+  },
+  itemCountLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 4,
   },
 });

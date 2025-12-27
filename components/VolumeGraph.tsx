@@ -16,6 +16,7 @@ interface VolumeGraphProps {
   originalQuantity: number | null;
   unit: string;
   onQuantityChange?: (newQuantity: number) => void;
+  onOriginalQuantityChange?: (newOriginal: number) => void;
   onScanForEstimate?: () => void;
 }
 
@@ -24,6 +25,7 @@ export function VolumeGraph({
   originalQuantity,
   unit,
   onQuantityChange,
+  onOriginalQuantityChange,
   onScanForEstimate,
 }: VolumeGraphProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -192,12 +194,48 @@ export function VolumeGraph({
         <Text style={styles.currentValue}>
           {currentQuantity.toFixed(currentQuantity % 1 === 0 ? 0 : 1)} {unit}
         </Text>
-        {originalQuantity && originalQuantity !== currentQuantity && (
-          <Text style={styles.originalValue}>
-            of {originalQuantity.toFixed(originalQuantity % 1 === 0 ? 0 : 1)} {unit} ({Math.round(percentage)}%)
-          </Text>
-        )}
+        <Text style={styles.originalValue}>
+          of {total.toFixed(total % 1 === 0 ? 0 : 1)} {unit} ({Math.round(percentage)}%)
+        </Text>
       </View>
+
+      {isEditing && onOriginalQuantityChange && (
+        <View style={styles.totalEditSection}>
+          <Text style={styles.totalEditLabel}>Total capacity:</Text>
+          <View style={styles.totalEditControls}>
+            <TouchableOpacity
+              style={styles.totalEditButton}
+              onPress={() => {
+                const newTotal = Math.max(currentQuantity, total - (total * 0.1));
+                onOriginalQuantityChange(Math.round(newTotal * 10) / 10);
+              }}
+            >
+              <Text style={styles.totalEditButtonText}>-10%</Text>
+            </TouchableOpacity>
+            <Text style={styles.totalEditValue}>
+              {total.toFixed(total % 1 === 0 ? 0 : 1)} {unit}
+            </Text>
+            <TouchableOpacity
+              style={styles.totalEditButton}
+              onPress={() => {
+                const newTotal = total + (total * 0.1);
+                onOriginalQuantityChange(Math.round(newTotal * 10) / 10);
+              }}
+            >
+              <Text style={styles.totalEditButtonText}>+10%</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.totalEditButton}
+              onPress={() => {
+                // Set total to current (reset to full)
+                onOriginalQuantityChange(currentQuantity);
+              }}
+            >
+              <Text style={styles.totalEditButtonText}>= Current</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {onScanForEstimate && (
         <TouchableOpacity style={styles.scanButton} onPress={onScanForEstimate}>
@@ -306,5 +344,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#4CAF50',
+  },
+  totalEditSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  totalEditLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+  },
+  totalEditControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  totalEditButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  totalEditButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  totalEditValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+    textAlign: 'center',
   },
 });
