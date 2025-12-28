@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
+  SectionList,
   FlatList,
   StyleSheet,
   TouchableOpacity,
@@ -12,27 +13,70 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useGroceryList } from '../../hooks/useGroceryList';
-import { GroceryItem, UNITS, Unit } from '../../lib/types';
+import { useHouseholdContext } from '../../context/HouseholdContext';
+import { GroceryItem, UNITS, Unit, Aisle, AISLES } from '../../lib/types';
 import { EmptyState } from '../../components/EmptyState';
+import { classifyAisle, getAisleSortOrder } from '../../lib/aisleClassifier';
+
+type ViewMode = 'list' | 'aisle';
+
+const AISLE_ICONS: Record<Aisle, string> = {
+  Produce: 'leaf-outline',
+  Dairy: 'water-outline',
+  'Meat & Seafood': 'nutrition-outline',
+  Bakery: 'pizza-outline',
+  Frozen: 'snow-outline',
+  'Canned Goods': 'cube-outline',
+  'Pasta & Grains': 'restaurant-outline',
+  Snacks: 'fast-food-outline',
+  Beverages: 'wine-outline',
+  Condiments: 'beaker-outline',
+  Spices: 'flask-outline',
+  Other: 'ellipsis-horizontal-outline',
+};
 
 export default function GroceryScreen() {
+  const { activeHousehold } = useHouseholdContext();
   const {
     groceryItems,
+    groceryItemsByAisle,
     loading,
     addGroceryItem,
+    addGroceryItemWithAisle,
     toggleChecked,
     deleteGroceryItem,
     clearCheckedItems,
     refreshGroceryList,
-  } = useGroceryList();
+  } = useGroceryList({ householdId: activeHousehold?.id });
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState('1');
   const [newItemUnit, setNewItemUnit] = useState<Unit>('item');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const uncheckedItems = groceryItems.filter((item) => !item.is_checked);
   const checkedItems = groceryItems.filter((item) => item.is_checked);
+
+  // Prepare sections for aisle view
+  const aisleSections = useMemo(() => {
+    const aisleOrder = getAisleSortOrder();
+    const sections: { title: Aisle; data: GroceryItem[] }[] = [];
+
+    for (const aisle of aisleOrder) {
+      const items = groceryItemsByAisle.get(aisle);
+      if (items && items.length > 0) {
+        // Sort: unchecked first, then checked
+        const sorted = [...items].sort((a, b) => {
+          if (a.is_checked === b.is_checked) return 0;
+          return a.is_checked ? 1 : -1;
+        });
+        sections.push({ title: aisle, data: sorted });
+      }
+    }
+
+    return sections;
+  }, [groceryItemsByAisle]);
 
   const handleAddItem = async () => {
     if (!newItemName.trim()) {
@@ -41,14 +85,11 @@ export default function GroceryScreen() {
     }
 
     try {
-      await addGroceryItem({
-        name: newItemName.trim(),
-        quantity: parseFloat(newItemQuantity) || 1,
-        unit: newItemUnit,
-        recipe_id: null,
-        recipe_name: null,
-        is_checked: false,
-      });
+      await addGroceryItemWithAisle(
+        newItemName.trim(),
+        parseFloat(newItemQuantity) || 1,
+        newItemUnit
+      );
       setNewItemName('');
       setNewItemQuantity('1');
       setShowAddForm(false);
@@ -106,13 +147,139 @@ export default function GroceryScreen() {
             {item.recipe_name && ` (for ${item.recipe_name})`}
           </Text>
         </View>
+        {viewMode === 'list' && item.aisle && (
+          <View style={styles.aisleBadge}>
+            <Text style={styles.aisleBadgeText}>{item.aisle}</Text>
+          </View>
+        )}
       </TouchableOpacity>
     ),
-    [toggleChecked, deleteGroceryItem]
+    [toggleChecked, deleteGroceryItem, viewMode]
+  );
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: { title: Aisle; data: GroceryItem[] } }) => {
+      const checkedCount = section.data.filter((item) => item.is_checked).length;
+      const totalCount = section.data.length;
+
+      return (
+        <View style={styles.sectionHeader}>
+          <Ionicons
+            name={AISLE_ICONS[section.title] as any}
+            size={18}
+            color="#4CAF50"
+          />
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <Text style={styles.sectionCount}>
+            {checkedCount}/{totalCount}
+          </Text>
+        </View>
+      );
+    },
+    []
+  );
+
+  const renderListView = () => (
+    <FlatList
+      data={[...uncheckedItems, ...checkedItems]}
+      renderItem={renderGroceryItem}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={[
+        styles.listContent,
+        groceryItems.length === 0 && styles.emptyListContent,
+      ]}
+      refreshControl={
+        <RefreshControl
+          refreshing={loading}
+          onRefresh={refreshGroceryList}
+          colors={['#4CAF50']}
+          tintColor="#4CAF50"
+        />
+      }
+      ListEmptyComponent={
+        <EmptyState
+          icon="cart-outline"
+          title="Your grocery list is empty"
+          description="Add items you need to buy, or generate a list from your meal plan."
+        />
+      }
+      ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+    />
+  );
+
+  const renderAisleView = () => (
+    <SectionList
+      sections={aisleSections}
+      renderItem={renderGroceryItem}
+      renderSectionHeader={renderSectionHeader}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={[
+        styles.listContent,
+        aisleSections.length === 0 && styles.emptyListContent,
+      ]}
+      refreshControl={
+        <RefreshControl
+          refreshing={loading}
+          onRefresh={refreshGroceryList}
+          colors={['#4CAF50']}
+          tintColor="#4CAF50"
+        />
+      }
+      ListEmptyComponent={
+        <EmptyState
+          icon="cart-outline"
+          title="Your grocery list is empty"
+          description="Add items you need to buy, or generate a list from your meal plan."
+        />
+      }
+      stickySectionHeadersEnabled
+      ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+      SectionSeparatorComponent={() => <View style={{ height: 16 }} />}
+    />
   );
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      {/* View Mode Toggle */}
+      <View style={styles.viewToggle}>
+        <TouchableOpacity
+          style={[styles.viewToggleButton, viewMode === 'list' && styles.viewToggleButtonActive]}
+          onPress={() => setViewMode('list')}
+        >
+          <Ionicons
+            name="list-outline"
+            size={18}
+            color={viewMode === 'list' ? '#fff' : '#666'}
+          />
+          <Text
+            style={[
+              styles.viewToggleText,
+              viewMode === 'list' && styles.viewToggleTextActive,
+            ]}
+          >
+            List
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.viewToggleButton, viewMode === 'aisle' && styles.viewToggleButtonActive]}
+          onPress={() => setViewMode('aisle')}
+        >
+          <Ionicons
+            name="storefront-outline"
+            size={18}
+            color={viewMode === 'aisle' ? '#fff' : '#666'}
+          />
+          <Text
+            style={[
+              styles.viewToggleText,
+              viewMode === 'aisle' && styles.viewToggleTextActive,
+            ]}
+          >
+            By Aisle
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Add Item Form */}
       {showAddForm && (
         <View style={styles.addForm}>
@@ -165,40 +332,7 @@ export default function GroceryScreen() {
       )}
 
       {/* List */}
-      <FlatList
-        data={[...uncheckedItems, ...checkedItems]}
-        renderItem={renderGroceryItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.listContent,
-          groceryItems.length === 0 && styles.emptyListContent,
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={refreshGroceryList}
-            colors={['#4CAF50']}
-            tintColor="#4CAF50"
-          />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="cart-outline"
-            title="Your grocery list is empty"
-            description="Add items you need to buy, or they'll be added automatically when recipes need ingredients you don't have."
-          />
-        }
-        ListHeaderComponent={
-          checkedItems.length > 0 && uncheckedItems.length > 0 ? (
-            <View style={styles.sectionDivider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>Checked</Text>
-              <View style={styles.dividerLine} />
-            </View>
-          ) : null
-        }
-        stickyHeaderIndices={checkedItems.length > 0 && uncheckedItems.length > 0 ? [uncheckedItems.length] : undefined}
-      />
+      {viewMode === 'list' ? renderListView() : renderAisleView()}
 
       {/* Footer Actions */}
       <View style={styles.footer}>
@@ -222,6 +356,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    padding: 12,
+    gap: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  viewToggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  viewToggleButtonActive: {
+    backgroundColor: '#4CAF50',
+  },
+  viewToggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  viewToggleTextActive: {
+    color: '#fff',
   },
   addForm: {
     backgroundColor: '#fff',
@@ -307,6 +470,24 @@ const styles = StyleSheet.create({
   emptyListContent: {
     flex: 1,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    backgroundColor: '#f5f5f5',
+  },
+  sectionTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  sectionCount: {
+    fontSize: 13,
+    color: '#666',
+  },
   groceryItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -314,7 +495,6 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fff',
     borderRadius: 12,
-    marginBottom: 8,
   },
   groceryItemChecked: {
     opacity: 0.6,
@@ -336,20 +516,15 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
-  sectionDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
+  aisleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#e8f5e9',
+    borderRadius: 12,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e0e0e0',
-  },
-  dividerText: {
-    paddingHorizontal: 12,
-    fontSize: 12,
-    color: '#999',
+  aisleBadgeText: {
+    fontSize: 11,
+    color: '#4CAF50',
     fontWeight: '500',
   },
   footer: {

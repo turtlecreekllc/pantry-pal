@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Linking,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,7 +17,9 @@ import { useRecipes } from '../../hooks/useRecipes';
 import { useSavedRecipes } from '../../hooks/useSavedRecipes';
 import { EmptyState } from '../../components/EmptyState';
 import { StarRating } from '../../components/ui/StarRating';
+import { AddToCookbookModal } from '../../components/AddToCookbookModal';
 import { RecipeSource } from '../../lib/types';
+import { shareRecipeAsText, shareRecipeAsPDF, printRecipe } from '../../lib/sharingService';
 
 export default function RecipeDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -34,6 +37,62 @@ export default function RecipeDetailsScreen() {
   }, [savedRecipes, id, recipeSource]);
 
   const isSaved = id ? isRecipeSaved(id, recipeSource) : false;
+  const [showCookbookModal, setShowCookbookModal] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+
+  const handleShare = () => {
+    if (!selectedRecipe) return;
+
+    Alert.alert(
+      'Share Recipe',
+      'How would you like to share this recipe?',
+      [
+        {
+          text: 'Share as Text',
+          onPress: async () => {
+            const success = await shareRecipeAsText({
+              name: selectedRecipe.name,
+              ingredients: selectedRecipe.ingredients,
+              instructions: selectedRecipe.instructions,
+              source: selectedRecipe.source || undefined,
+            });
+            if (!success) {
+              Alert.alert('Error', 'Failed to share recipe');
+            }
+          },
+        },
+        {
+          text: 'Share as PDF',
+          onPress: async () => {
+            const success = await shareRecipeAsPDF({
+              name: selectedRecipe.name,
+              description: selectedRecipe.category ? `${selectedRecipe.category} cuisine` : undefined,
+              ingredients: selectedRecipe.ingredients,
+              instructions: selectedRecipe.instructions,
+              source: selectedRecipe.source || undefined,
+              imageUrl: selectedRecipe.thumbnail,
+            });
+            if (!success) {
+              Alert.alert('Error', 'Failed to create PDF');
+            }
+          },
+        },
+        {
+          text: 'Print',
+          onPress: async () => {
+            await printRecipe({
+              name: selectedRecipe.name,
+              ingredients: selectedRecipe.ingredients,
+              instructions: selectedRecipe.instructions,
+              source: selectedRecipe.source || undefined,
+              imageUrl: selectedRecipe.thumbnail,
+            });
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
 
   useEffect(() => {
     if (id) {
@@ -120,17 +179,26 @@ export default function RecipeDetailsScreen() {
             </TouchableOpacity>
           ),
           headerRight: () => (
-            <TouchableOpacity
-              onPress={handleToggleSave}
-              style={styles.saveButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name={isSaved ? 'heart' : 'heart-outline'}
-                size={24}
-                color={isSaved ? '#f44336' : '#fff'}
-              />
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                onPress={handleShare}
+                style={styles.headerButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="share-outline" size={22} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleToggleSave}
+                style={styles.headerButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={isSaved ? 'heart' : 'heart-outline'}
+                  size={24}
+                  color={isSaved ? '#f44336' : '#fff'}
+                />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
@@ -140,16 +208,26 @@ export default function RecipeDetailsScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>{selectedRecipe.name}</Text>
 
-          {/* Rating section - only show when saved */}
-          {isSaved && (
-            <View style={styles.ratingSection}>
-              <Text style={styles.ratingLabel}>Your Rating</Text>
-              <StarRating
-                rating={savedRecipe?.rating || null}
-                onChange={handleRatingChange}
-                size={28}
-              />
-            </View>
+          {/* Rating and Cookbook section - only show when saved */}
+          {isSaved && savedRecipe && (
+            <>
+              <View style={styles.ratingSection}>
+                <Text style={styles.ratingLabel}>Your Rating</Text>
+                <StarRating
+                  rating={savedRecipe?.rating || null}
+                  onChange={handleRatingChange}
+                  size={28}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.cookbookButton}
+                onPress={() => setShowCookbookModal(true)}
+              >
+                <Ionicons name="book-outline" size={18} color="#4CAF50" />
+                <Text style={styles.cookbookButtonText}>Add to Cookbook</Text>
+              </TouchableOpacity>
+            </>
           )}
 
           <View style={styles.badges}>
@@ -166,6 +244,15 @@ export default function RecipeDetailsScreen() {
               </View>
             )}
           </View>
+
+          {/* Start Cooking Button */}
+          <TouchableOpacity
+            style={styles.cookButton}
+            onPress={() => router.push(`/recipe/cook/${id}`)}
+          >
+            <Ionicons name="restaurant" size={20} color="#fff" />
+            <Text style={styles.cookButtonText}>Start Cooking</Text>
+          </TouchableOpacity>
 
           {selectedRecipe.youtubeUrl && (
             <TouchableOpacity style={styles.videoButton} onPress={handleWatchVideo}>
@@ -206,6 +293,16 @@ export default function RecipeDetailsScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Add to Cookbook Modal */}
+      {savedRecipe && (
+        <AddToCookbookModal
+          visible={showCookbookModal}
+          onClose={() => setShowCookbookModal(false)}
+          savedRecipeId={savedRecipe.id}
+          recipeName={selectedRecipe.name}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -221,6 +318,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: -8,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: -8,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButton: {
     width: 44,
@@ -242,6 +350,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#666',
+  },
+  cookbookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  cookbookButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4CAF50',
   },
   loadingContainer: {
     flex: 1,
@@ -288,6 +411,21 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 13,
     color: '#666',
+  },
+  cookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+    marginBottom: 12,
+  },
+  cookButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   videoButton: {
     flexDirection: 'row',

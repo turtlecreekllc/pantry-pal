@@ -16,6 +16,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePantry } from '../../hooks/usePantry';
+import { useHouseholdContext } from '../../context/HouseholdContext';
 import { ScanReviewCard } from '../../components/ScanReviewCard';
 import { analyzeReceiptImage } from '../../lib/aiScanner';
 import { ScannedItem, Location } from '../../lib/types';
@@ -42,7 +43,8 @@ export default function ReceiptScannerScreen() {
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
-  const { addItem } = usePantry();
+  const { activeHousehold } = useHouseholdContext();
+  const { addItem } = usePantry({ householdId: activeHousehold?.id });
 
   const [phase, setPhase] = useState<ScanPhase>('capture');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);

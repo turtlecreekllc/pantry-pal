@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { usePantry } from '../../hooks/usePantry';
+import { useHouseholdContext } from '../../context/HouseholdContext';
 import { ScanReviewCard } from '../../components/ScanReviewCard';
 import { analyzeShelfPhoto } from '../../lib/aiScanner';
 import { ScannedItem, Location } from '../../lib/types';
@@ -37,7 +38,8 @@ export default function PhotoScannerScreen() {
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
-  const { addItem } = usePantry();
+  const { activeHousehold } = useHouseholdContext();
+  const { addItem } = usePantry({ householdId: activeHousehold?.id });
 
   const [phase, setPhase] = useState<ScanPhase>('location');
   const [selectedLocation, setSelectedLocation] = useState<Location>('pantry');

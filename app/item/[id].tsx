@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { usePantry } from '../../hooks/usePantry';
+import { useHouseholdContext } from '../../context/HouseholdContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { QuantitySelector } from '../../components/ui/QuantitySelector';
@@ -43,7 +44,10 @@ const UNIT_OPTIONS: { label: string; value: Unit }[] = [
 export default function ItemDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { pantryItems, updateItem, deleteItem } = usePantry();
+  const { activeHousehold } = useHouseholdContext();
+  const { pantryItems, updateItem, deleteItem } = usePantry({
+    householdId: activeHousehold?.id,
+  });
 
   const [item, setItem] = useState<PantryItem | null>(null);
   const [loading, setLoading] = useState(false);

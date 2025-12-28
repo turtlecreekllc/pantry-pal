@@ -15,9 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedRecipes } from '../../hooks/useSavedRecipes';
 import { useMealPlans } from '../../hooks/useMealPlans';
+import { useCalendar } from '../../hooks/useCalendar';
 import { useRecipes } from '../../hooks/useRecipes';
 import { usePantry } from '../../hooks/usePantry';
 import { useGroceryList } from '../../hooks/useGroceryList';
+import { useHouseholdContext } from '../../context/HouseholdContext';
 import { MealIngredientMatcher } from '../../components/MealIngredientMatcher';
 import { getRecipeDetails } from '../../lib/recipeService';
 import { SavedRecipe, MealType, RecipePreview, RecipeSource, ExtendedRecipe, IngredientDeduction } from '../../lib/types';
@@ -25,11 +27,13 @@ import { SavedRecipe, MealType, RecipePreview, RecipeSource, ExtendedRecipe, Ing
 export default function AddMealScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ date: string; mealType: string }>();
+  const { activeHousehold } = useHouseholdContext();
   const { savedRecipes } = useSavedRecipes();
-  const { addMealPlan } = useMealPlans();
+  const { addMealPlan } = useMealPlans({ householdId: activeHousehold?.id });
+  const { syncMeal } = useCalendar();
   const { recipes, searchRecipes, loading } = useRecipes();
-  const { pantryItems, useItem } = usePantry();
-  const { addGroceryItem } = useGroceryList();
+  const { pantryItems, useItem } = usePantry({ householdId: activeHousehold?.id });
+  const { addGroceryItem } = useGroceryList({ householdId: activeHousehold?.id });
 
   const [searchText, setSearchText] = useState('');
   const [servings, setServings] = useState(1);
@@ -106,25 +110,38 @@ export default function AddMealScreen() {
     if (!pendingMealData) return;
 
     try {
-      await addMealPlan(
-        {
-          date,
-          meal_type: mealType,
-          recipe_id: pendingMealData.recipe_id,
-          recipe_source: pendingMealData.recipe_source,
-          recipe_name: pendingMealData.recipe_name,
-          recipe_thumbnail: pendingMealData.recipe_thumbnail,
-          servings,
-          notes: null,
-          is_completed: false,
-          completed_at: null,
-          ingredient_deductions: deductions.length > 0 ? deductions : null,
-        },
+      const mealData = {
+        date,
+        meal_type: mealType,
+        recipe_id: pendingMealData.recipe_id,
+        recipe_source: pendingMealData.recipe_source,
+        recipe_name: pendingMealData.recipe_name,
+        recipe_thumbnail: pendingMealData.recipe_thumbnail,
+        servings,
+        notes: null,
+        is_completed: false,
+        completed_at: null,
+        ingredient_deductions: deductions.length > 0 ? deductions : null,
+      };
+
+      const newMealId = await addMealPlan(
+        mealData,
         {
           deductions,
           onDeduct: useItem,
         }
       );
+
+      if (newMealId) {
+        await syncMeal({
+          id: newMealId,
+          user_id: '', // Not needed for sync
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          ...mealData
+        });
+      }
+
       setShowMatcher(false);
       router.back();
     } catch (error) {
@@ -147,6 +164,8 @@ export default function AddMealScreen() {
         recipe_id: pendingMealData?.recipe_id || null,
         recipe_name: pendingMealData?.recipe_name || null,
         is_checked: false,
+        aisle: null,
+        meal_plan_id: null,
       });
       Alert.alert('Added', `${ingredient} added to grocery list`);
     } catch (error) {

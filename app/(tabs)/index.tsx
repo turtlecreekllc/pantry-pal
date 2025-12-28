@@ -9,15 +9,21 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePantry } from '../../hooks/usePantry';
+import { useHouseholdContext } from '../../context/HouseholdContext';
 import { PantryItemCard } from '../../components/PantryItemCard';
+import { PendingInvites } from '../../components/PendingInvites';
 import { EmptyState } from '../../components/EmptyState';
 import { PantryListSkeleton } from '../../components/LoadingSkeleton';
 import { ExpandableFAB } from '../../components/ExpandableFAB';
-import { PantryItem } from '../../lib/types';
+import { ImpactDashboard } from '../../components/ImpactDashboard';
+import { RescueMissions } from '../../components/RescueMissions';
 
 export default function PantryScreen() {
   const router = useRouter();
-  const { pantryItems, loading, error, refreshPantry } = usePantry();
+  const { activeHousehold } = useHouseholdContext();
+  const { pantryItems, loading, error, refreshPantry } = usePantry({
+    householdId: activeHousehold?.id,
+  });
 
   const handleItemPress = useCallback((item: PantryItem) => {
     router.push(`/item/${item.id}`);
@@ -39,6 +45,14 @@ export default function PantryScreen() {
     router.push('/scan/photo');
   }, [router]);
 
+  const handleRecipeCardScan = useCallback(() => {
+    router.push('/scan/recipe-card');
+  }, [router]);
+
+  const handleMagicRecipe = useCallback(() => {
+    router.push('/recipe/generate');
+  }, [router]);
+
   const renderItem = useCallback(({ item }: { item: PantryItem }) => (
     <PantryItemCard item={item} onPress={() => handleItemPress(item)} />
   ), [handleItemPress]);
@@ -46,6 +60,11 @@ export default function PantryScreen() {
   const keyExtractor = useCallback((item: PantryItem) => item.id, []);
 
   const fabActions = [
+    {
+      icon: 'sparkles' as const,
+      label: 'Magic Recipe',
+      onPress: handleMagicRecipe,
+    },
     {
       icon: 'pencil' as const,
       label: 'Add Manually',
@@ -60,6 +79,11 @@ export default function PantryScreen() {
       icon: 'receipt-outline' as const,
       label: 'Scan Receipt',
       onPress: handleReceiptScan,
+    },
+    {
+      icon: 'document-text-outline' as const,
+      label: 'Scan Recipe Card',
+      onPress: handleRecipeCardScan,
     },
     {
       icon: 'image-outline' as const,
@@ -83,24 +107,13 @@ export default function PantryScreen() {
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
-
-      <FlatList
-        data={pantryItems}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={[
-          styles.listContent,
-          pantryItems.length === 0 && styles.emptyListContent,
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={refreshPantry}
-            colors={['#4CAF50']}
-            tintColor="#4CAF50"
-          />
+        ListHeaderComponent={
+          <View>
+            <PendingInvites />
+            <ImpactDashboard />
+            <RescueMissions />
+          </View>
         }
-        ListEmptyComponent={
           <EmptyState
             icon="file-tray-outline"
             title="Your pantry is empty"

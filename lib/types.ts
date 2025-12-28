@@ -2,10 +2,28 @@
 export const FILL_LEVELS = ['full', '3/4', '1/2', '1/4', 'almost-empty'] as const;
 export type FillLevel = (typeof FILL_LEVELS)[number];
 
+// Aisle options for grocery items (defined early for use in GroceryItem)
+export const AISLES = [
+  'Produce',
+  'Dairy',
+  'Meat & Seafood',
+  'Bakery',
+  'Frozen',
+  'Canned Goods',
+  'Pasta & Grains',
+  'Snacks',
+  'Beverages',
+  'Condiments',
+  'Spices',
+  'Other',
+] as const;
+export type Aisle = (typeof AISLES)[number];
+
 // Pantry Item types
 export interface PantryItem {
   id: string;
   user_id: string;
+  household_id?: string | null;
   barcode: string | null;
   name: string;
   brand: string | null;
@@ -43,6 +61,8 @@ export interface GroceryItem {
   recipe_id: string | null;
   recipe_name: string | null;
   is_checked: boolean;
+  aisle: Aisle | null;
+  meal_plan_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -120,6 +140,8 @@ export interface Recipe {
   youtubeUrl: string | null;
   ingredients: RecipeIngredient[];
   source: string | null;
+  servings?: number;
+  readyInMinutes?: number;
 }
 
 export interface RecipeIngredient {
@@ -173,7 +195,10 @@ export const UNITS = ['item', 'oz', 'lb', 'g', 'kg', 'ml', 'l', 'cup', 'tbsp', '
 export type Unit = (typeof UNITS)[number];
 
 // Recipe source types
-export type RecipeSource = 'themealdb' | 'spoonacular' | 'web';
+export type RecipeSource = 'themealdb' | 'spoonacular' | 'web' | 'imported';
+
+// Import platform types for recipe import
+export type ImportPlatform = 'instagram' | 'tiktok' | 'youtube' | 'pinterest' | 'facebook' | 'web' | 'text' | 'photo' | 'recipe_card';
 
 // Extended Recipe for multi-source support
 export interface ExtendedRecipe extends Recipe {
@@ -182,6 +207,7 @@ export interface ExtendedRecipe extends Recipe {
   servings?: number;
   diets?: string[];
   difficulty?: 'easy' | 'medium' | 'hard';
+  nutrition?: NutritionInfo;
 }
 
 // Scored recipe from pantry matching
@@ -201,6 +227,9 @@ export interface SavedRecipe {
   notes: string | null;
   rating: number | null;
   tags: string[];
+  made_count: number;
+  last_made_at: string | null;
+  imported_recipe_id: string | null;
   saved_at: string;
   updated_at: string;
 }
@@ -300,6 +329,12 @@ export interface PhotoScanResult {
   imageUri: string;
 }
 
+export interface RecipeCardScanResult {
+  recipe: Partial<ImportedRecipe>;
+  confidence: number;
+  originalImage: string;
+}
+
 // Chat types
 export interface ChatMessage {
   id: string;
@@ -315,4 +350,380 @@ export interface ChatAction {
   type: 'view_recipe' | 'add_to_grocery' | 'update_item' | 'view_item';
   label: string;
   data: any;
+}
+
+// Household Sharing types
+export const HOUSEHOLD_ROLES = ['owner', 'admin', 'member'] as const;
+export type HouseholdRole = (typeof HOUSEHOLD_ROLES)[number];
+
+export const INVITE_STATUSES = ['pending', 'accepted', 'declined', 'expired'] as const;
+export type InviteStatus = (typeof INVITE_STATUSES)[number];
+
+export interface Household {
+  id: string;
+  name: string;
+  owner_id: string;
+  created_at: string;
+}
+
+export interface HouseholdMember {
+  id: string;
+  household_id: string;
+  user_id: string;
+  role: HouseholdRole;
+  joined_at: string;
+  user_email?: string;
+  user_avatar_url?: string;
+}
+
+export interface HouseholdInvite {
+  id: string;
+  household_id: string;
+  email: string;
+  token: string;
+  expires_at: string;
+  status: InviteStatus;
+  created_at: string;
+  household_name?: string;
+}
+
+export interface HouseholdActivity {
+  id: string;
+  household_id: string;
+  user_id: string;
+  user_email?: string;
+  action_type: 'item_added' | 'item_updated' | 'item_deleted' | 'meal_planned' | 'meal_completed' | 'member_joined' | 'member_left';
+  action_data: Record<string, unknown>;
+  created_at: string;
+}
+
+/**
+ * Item claim - marks a pantry item as reserved for a specific member
+ */
+export interface ItemClaim {
+  id: string;
+  pantry_item_id: string;
+  user_id: string;
+  user_email?: string;
+  note?: string;
+  created_at: string;
+}
+
+/**
+ * RSVP status for meal plans
+ */
+export const RSVP_STATUSES = ['attending', 'not_attending', 'maybe'] as const;
+export type RSVPStatus = (typeof RSVP_STATUSES)[number];
+
+/**
+ * Meal RSVP - tracks attendance for planned meals
+ */
+export interface MealRSVP {
+  id: string;
+  meal_plan_id: string;
+  user_id: string;
+  user_email?: string;
+  status: RSVPStatus;
+  servings?: number;
+  note?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Meal assignment - assigns cooking responsibility to a member
+ */
+export interface MealAssignment {
+  id: string;
+  meal_plan_id: string;
+  user_id: string;
+  user_email?: string;
+  assigned_by: string;
+  created_at: string;
+}
+
+export interface HouseholdWithMembers extends Household {
+  members: HouseholdMember[];
+  member_count: number;
+  current_user_role: HouseholdRole;
+}
+
+/**
+ * Permission configuration for household roles
+ */
+export const ROLE_PERMISSIONS: Record<HouseholdRole, {
+  canManageMembers: boolean;
+  canInviteMembers: boolean;
+  canRemoveMembers: boolean;
+  canDeleteHousehold: boolean;
+  canTransferOwnership: boolean;
+  canEditSettings: boolean;
+  canEditPantry: boolean;
+  canEditMeals: boolean;
+  canViewAll: boolean;
+}> = {
+  owner: {
+    canManageMembers: true,
+    canInviteMembers: true,
+    canRemoveMembers: true,
+    canDeleteHousehold: true,
+    canTransferOwnership: true,
+    canEditSettings: true,
+    canEditPantry: true,
+    canEditMeals: true,
+    canViewAll: true,
+  },
+  admin: {
+    canManageMembers: true,
+    canInviteMembers: true,
+    canRemoveMembers: false,
+    canDeleteHousehold: false,
+    canTransferOwnership: false,
+    canEditSettings: true,
+    canEditPantry: true,
+    canEditMeals: true,
+    canViewAll: true,
+  },
+  member: {
+    canManageMembers: false,
+    canInviteMembers: false,
+    canRemoveMembers: false,
+    canDeleteHousehold: false,
+    canTransferOwnership: false,
+    canEditSettings: false,
+    canEditPantry: true,
+    canEditMeals: false,
+    canViewAll: true,
+  },
+} as const;
+
+// ============================================
+// COOKBOOK & RECIPE IMPORT TYPES
+// ============================================
+
+// Smart collection criteria for auto-generated cookbooks
+export interface SmartCriteria {
+  type: 'quick_meals' | 'highly_rated' | 'recently_made' | 'cuisine' | 'dietary' | 'custom';
+  maxTime?: number; // For quick meals (minutes)
+  minRating?: number; // For highly rated
+  daysSince?: number; // For recently made
+  cuisine?: string; // For cuisine-based
+  diets?: string[]; // For dietary collections
+  tags?: string[]; // Custom tags
+}
+
+// Cookbook for organizing recipes
+export interface Cookbook {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  cover_image_url: string | null;
+  is_public: boolean;
+  is_smart: boolean;
+  smart_criteria: SmartCriteria | null;
+  created_at: string;
+  updated_at: string;
+  // Virtual fields (computed on fetch)
+  recipe_count?: number;
+}
+
+// Junction table entry for cookbook-recipe relationship
+export interface CookbookRecipe {
+  id: string;
+  cookbook_id: string;
+  saved_recipe_id: string;
+  added_at: string;
+}
+
+// Imported recipe from URL, text, or photo
+export interface ImportedRecipe {
+  id: string;
+  user_id: string;
+  source_url: string | null;
+  source_platform: ImportPlatform;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  prep_time: number | null;
+  cook_time: number | null;
+  total_time: number | null;
+  servings: number | null;
+  ingredients: RecipeIngredient[];
+  instructions: string;
+  cuisine: string | null;
+  category: string | null;
+  difficulty: 'easy' | 'medium' | 'hard' | null;
+  diets: string[];
+  tags: string[];
+  nutrition: NutritionInfo | null;
+  import_metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Cooking history entry for tracking when recipes are made
+export interface CookingHistoryEntry {
+  id: string;
+  user_id: string;
+  saved_recipe_id: string;
+  cooked_at: string;
+  servings_made: number | null;
+  notes: string | null;
+  rating: number | null;
+  // Virtual field - photos linked to this history entry
+  photos?: RecipeUserPhoto[];
+}
+
+// User-uploaded photo for a recipe
+export interface RecipeUserPhoto {
+  id: string;
+  user_id: string;
+  saved_recipe_id: string;
+  photo_url: string;
+  caption: string | null;
+  cooking_history_id: string | null;
+  uploaded_at: string;
+}
+
+// Result from recipe import (before saving)
+export interface RecipeImportResult {
+  success: boolean;
+  recipe: Partial<ImportedRecipe> | null;
+  error: string | null;
+  confidence: number; // 0-1 score for extraction quality
+  platform: ImportPlatform;
+  warnings?: string[]; // Non-fatal issues during import
+}
+
+// Enhanced scored recipe with expiration awareness
+export interface EnhancedScoredRecipe extends ScoredRecipe {
+  matchPercentage: number; // 0-100
+  expiringIngredients: string[]; // Ingredients that expire soon
+  priorityScore: number; // Boosted score for using expiring items
+  substitutions?: IngredientSubstitution[];
+}
+
+// Ingredient substitution suggestion
+export interface IngredientSubstitution {
+  original: string;
+  substitute: string;
+  ratio: string; // e.g., "1:1", "1 tbsp = 2 tsp"
+  notes: string | null;
+}
+
+// Cook mode step (parsed from instructions)
+export interface CookingStep {
+  stepNumber: number;
+  instruction: string;
+  timerMinutes?: number; // Extracted from text like "bake for 20 minutes"
+  ingredients?: string[]; // Ingredients mentioned in this step
+}
+
+// Serving scale result
+export interface ScaledIngredient extends RecipeIngredient {
+  originalMeasure: string;
+  scaledMeasure: string;
+  scaleFactor: number;
+}
+
+// User preferences for cook mode and display
+export interface CookingPreferences {
+  unitSystem: 'metric' | 'imperial';
+  keepScreenAwake: boolean;
+  defaultServings: number;
+  timerSoundEnabled: boolean;
+}
+
+// ============================================
+// GAMIFICATION TYPES
+// ============================================
+
+export type ImpactOutcome = 'rescued' | 'expired' | 'removed' | 'donated';
+
+export interface ImpactRecord {
+  id: string;
+  user_id: string;
+  household_id?: string | null;
+  item_id?: string | null;
+  item_name: string;
+  outcome: ImpactOutcome;
+  quantity_amount: number;
+  quantity_unit: string;
+  estimated_weight_g?: number;
+  estimated_cost_cents?: number;
+  co2_saved_g?: number;
+  recorded_at: string;
+  created_at: string;
+}
+
+export type ImpactPeriod = 'week' | 'month' | 'all_time';
+
+export interface UserImpactSummary {
+  id: string;
+  user_id: string;
+  period: ImpactPeriod;
+  period_start: string;
+  items_rescued: number;
+  items_expired: number;
+  weight_saved_g: number;
+  money_saved_cents: number;
+  co2_avoided_g: number;
+  updated_at: string;
+}
+
+export type AchievementTier = 'bronze' | 'silver' | 'gold';
+export type AchievementCategory = 'getting_started' | 'consistency' | 'impact' | 'rescue' | 'exploration';
+export type ThresholdType = 'count' | 'streak' | 'cumulative';
+
+export interface Achievement {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  icon_url?: string;
+  tier: AchievementTier;
+  category: AchievementCategory;
+  threshold_value: number;
+  threshold_type: ThresholdType;
+  created_at: string;
+}
+
+export interface UserAchievement {
+  id: string;
+  user_id: string;
+  achievement_id: string;
+  unlocked_at: string;
+  progress: number;
+  is_seen: boolean;
+  achievement?: Achievement; // For joined queries
+}
+
+export type ChallengeType = 'weekly' | 'monthly' | 'seasonal';
+export type ChallengeGoalType = 'rescue_count' | 'rescue_percent' | 'money_saved';
+
+export interface Challenge {
+  id: string;
+  name: string;
+  description: string;
+  type: ChallengeType;
+  goal_value: number;
+  goal_type: ChallengeGoalType;
+  start_date: string;
+  end_date: string;
+  reward_badge_id?: string;
+  created_at: string;
+}
+
+export type ChallengeStatus = 'active' | 'completed' | 'abandoned' | 'failed';
+
+export interface UserChallenge {
+  id: string;
+  user_id: string;
+  challenge_id: string;
+  status: ChallengeStatus;
+  progress: number;
+  enrolled_at: string;
+  completed_at?: string;
+  challenge?: Challenge; // For joined queries
 }

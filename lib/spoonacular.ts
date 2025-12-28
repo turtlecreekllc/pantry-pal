@@ -1,4 +1,4 @@
-import { ExtendedRecipe, RecipeIngredient, RecipePreview } from './types';
+import { ExtendedRecipe, RecipeIngredient, RecipePreview, NutritionInfo } from './types';
 
 const BASE_URL = 'https://api.spoonacular.com';
 const API_KEY = process.env.EXPO_PUBLIC_SPOONACULAR_API_KEY;
@@ -25,6 +25,13 @@ interface SpoonacularRecipe {
   analyzedInstructions?: {
     steps: { step: string }[];
   }[];
+  nutrition?: {
+    nutrients: {
+      name: string;
+      amount: number;
+      unit: string;
+    }[];
+  };
 }
 
 interface SpoonacularSearchResult {
@@ -118,7 +125,7 @@ export async function getRecipeById(id: number): Promise<ExtendedRecipe | null> 
 
   try {
     const response = await fetch(
-      `${BASE_URL}/recipes/${id}/information?apiKey=${API_KEY}&includeNutrition=false`
+      `${BASE_URL}/recipes/${id}/information?apiKey=${API_KEY}&includeNutrition=true`
     );
 
     if (!response.ok) {
@@ -141,6 +148,19 @@ export async function getRecipeById(id: number): Promise<ExtendedRecipe | null> 
       measure: `${ing.amount} ${ing.unit}`.trim(),
     }));
 
+    const nutrients = data.nutrition?.nutrients || [];
+    const nutrition: NutritionInfo = {
+      energy_kcal: nutrients.find(n => n.name === 'Calories')?.amount,
+      proteins: nutrients.find(n => n.name === 'Protein')?.amount,
+      fat: nutrients.find(n => n.name === 'Fat')?.amount,
+      carbohydrates: nutrients.find(n => n.name === 'Carbohydrates')?.amount,
+      fiber: nutrients.find(n => n.name === 'Fiber')?.amount,
+      sodium: nutrients.find(n => n.name === 'Sodium')?.amount,
+      saturated_fat: nutrients.find(n => n.name === 'Saturated Fat')?.amount,
+      sugars: nutrients.find(n => n.name === 'Sugar')?.amount,
+      salt: nutrients.find(n => n.name === 'Salt')?.amount,
+    };
+
     return {
       id: `spoonacular-${data.id}`,
       name: data.title,
@@ -155,6 +175,7 @@ export async function getRecipeById(id: number): Promise<ExtendedRecipe | null> 
       readyInMinutes: data.readyInMinutes,
       servings: data.servings,
       diets: data.diets,
+      nutrition,
     };
   } catch (error) {
     console.error('Spoonacular getRecipe error:', error);

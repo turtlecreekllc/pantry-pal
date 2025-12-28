@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { usePantry } from '../../hooks/usePantry';
+import { useHouseholdContext } from '../../context/HouseholdContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { QuantitySelector } from '../../components/ui/QuantitySelector';
@@ -24,7 +25,8 @@ export default function ManualEntryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ barcode?: string }>();
 
-  const { addItem } = usePantry();
+  const { activeHousehold } = useHouseholdContext();
+  const { addItem } = usePantry({ householdId: activeHousehold?.id });
   const [loading, setLoading] = useState(false);
 
   const [name, setName] = useState('');

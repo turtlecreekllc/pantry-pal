@@ -110,13 +110,22 @@ export default function SavedRecipesScreen() {
             description={
               searchText
                 ? 'Try a different search term'
-                : 'Save recipes from the Recipes tab to access them here!'
+                : 'Save recipes from the Recipes tab or import your own!'
             }
-            actionLabel={searchText ? undefined : 'Browse Recipes'}
-            onAction={searchText ? undefined : () => router.push('/(tabs)/recipes')}
+            actionLabel={searchText ? undefined : 'Import Recipe'}
+            onAction={searchText ? undefined : () => router.push('/import')}
           />
         }
       />
+
+      {/* Import FAB */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/import')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -209,5 +218,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 12,
     padding: 4,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#4CAF50',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
   },
 });

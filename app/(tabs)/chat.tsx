@@ -16,12 +16,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { usePantry } from '../../hooks/usePantry';
+import { useHouseholdContext } from '../../context/HouseholdContext';
 import { sendChatMessage, getSuggestedPrompts } from '../../lib/chatService';
 import { ChatMessage } from '../../lib/types';
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
-  const { pantryItems } = usePantry();
+  const { activeHousehold } = useHouseholdContext();
+  const { pantryItems } = usePantry({ householdId: activeHousehold?.id });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);

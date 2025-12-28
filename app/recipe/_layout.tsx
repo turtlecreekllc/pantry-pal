@@ -19,6 +19,21 @@ export default function RecipeLayout() {
           title: 'Recipe',
         }}
       />
+      <Stack.Screen
+        name="generate"
+        options={{
+          title: 'AI Recipe Generator',
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="cook/[id]"
+        options={{
+          title: 'Cook Mode',
+          presentation: 'fullScreenModal',
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

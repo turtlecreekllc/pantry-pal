@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { usePantry } from '../../hooks/usePantry';
+import { useHouseholdContext } from '../../context/HouseholdContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { QuantitySelector } from '../../components/ui/QuantitySelector';
@@ -33,7 +34,8 @@ export default function AddItemScreen() {
     productQuantity: string;
   }>();
 
-  const { addItem } = usePantry();
+  const { activeHousehold } = useHouseholdContext();
+  const { addItem } = usePantry({ householdId: activeHousehold?.id });
   const [loading, setLoading] = useState(false);
 
   // Parse the quantity from API if available

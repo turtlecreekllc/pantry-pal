@@ -2,12 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { PantryItem, UsageHistoryEntry } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
+import { useHouseholdContext } from '../context/HouseholdContext';
+import { logActivity } from '../lib/householdService';
+import { gamificationService } from '../lib/gamificationService';
 
 interface UseItemOptions {
   note?: string;
   recipe_id?: string;
   recipe_name?: string;
   meal_plan_id?: string;
+}
+
+interface UsePantryOptions {
+  /** Optional household ID override. If not provided, uses active household from context. */
+  householdId?: string | null;
 }
 
 interface UsePantryReturn {
@@ -22,11 +30,16 @@ interface UsePantryReturn {
   refreshPantry: () => Promise<void>;
 }
 
-export function usePantry(): UsePantryReturn {
+export function usePantry(options: UsePantryOptions = {}): UsePantryReturn {
+  const { activeHousehold } = useHouseholdContext();
+  // specific ID > active household > null (personal)
+  const householdId = options.householdId !== undefined ? options.householdId : activeHousehold?.id;
+  
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const isHouseholdMode = Boolean(householdId);
 
   const fetchPantryItems = useCallback(async () => {
     if (!user) {
@@ -34,17 +47,19 @@ export function usePantry(): UsePantryReturn {
       setLoading(false);
       return;
     }
-
     setLoading(true);
     setError(null);
-
     try {
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('pantry_items')
         .select('*')
-        .eq('user_id', user.id)
         .order('added_at', { ascending: false });
-
+      if (isHouseholdMode && householdId) {
+        query = query.eq('household_id', householdId);
+      } else {
+        query = query.eq('user_id', user.id).is('household_id', null);
+      }
+      const { data, error: fetchError } = await query;
       if (fetchError) throw fetchError;
       setPantryItems(data || []);
     } catch (err) {
@@ -53,7 +68,7 @@ export function usePantry(): UsePantryReturn {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, householdId, isHouseholdMode]);
 
   useEffect(() => {
     fetchPantryItems();
@@ -65,29 +80,38 @@ export function usePantry(): UsePantryReturn {
       setError(error.message);
       throw error;
     }
-
     setError(null);
-
     try {
+      const insertData: Record<string, unknown> = {
+        ...item,
+        user_id: user.id,
+      };
+      if (isHouseholdMode && householdId) {
+        insertData.household_id = householdId;
+      }
       const { data, error: insertError } = await supabase
         .from('pantry_items')
-        .insert({
-          ...item,
-          user_id: user.id,
-        })
+        .insert(insertData)
         .select()
         .single();
-
       if (insertError) {
         console.error('Supabase insert error:', insertError);
         throw new Error(insertError.message || 'Database error');
       }
       if (data) {
         setPantryItems((prev) => [data, ...prev]);
+        if (isHouseholdMode && householdId) {
+          logActivity({
+            householdId,
+            userId: user.id,
+            actionType: 'item_added',
+            actionData: { item_name: item.name, quantity: item.quantity },
+          });
+        }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error adding item:', err);
-      const message = err?.message || 'Failed to add item';
+      const message = err instanceof Error ? err.message : 'Failed to add item';
       setError(message);
       throw err;
     }
@@ -98,23 +122,28 @@ export function usePantry(): UsePantryReturn {
       setError('You must be logged in to update items');
       return;
     }
-
     setError(null);
-
     try {
-      const { data, error: updateError } = await supabase
-        .from('pantry_items')
-        .update(updates)
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
-
+      let query = supabase.from('pantry_items').update(updates).eq('id', id);
+      if (isHouseholdMode && householdId) {
+        query = query.eq('household_id', householdId);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+      const { data, error: updateError } = await query.select().single();
       if (updateError) throw updateError;
       if (data) {
         setPantryItems((prev) =>
           prev.map((item) => (item.id === id ? data : item))
         );
+        if (isHouseholdMode && householdId) {
+          logActivity({
+            householdId,
+            userId: user.id,
+            actionType: 'item_updated',
+            actionData: { item_id: id, updates },
+          });
+        }
       }
     } catch (err) {
       console.error('Error updating item:', err);
@@ -128,18 +157,26 @@ export function usePantry(): UsePantryReturn {
       setError('You must be logged in to delete items');
       return;
     }
-
     setError(null);
-
     try {
-      const { error: deleteError } = await supabase
-        .from('pantry_items')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
-
+      const itemToDelete = pantryItems.find((item) => item.id === id);
+      let query = supabase.from('pantry_items').delete().eq('id', id);
+      if (isHouseholdMode && householdId) {
+        query = query.eq('household_id', householdId);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+      const { error: deleteError } = await query;
       if (deleteError) throw deleteError;
       setPantryItems((prev) => prev.filter((item) => item.id !== id));
+      if (isHouseholdMode && householdId && itemToDelete) {
+        logActivity({
+          householdId,
+          userId: user.id,
+          actionType: 'item_deleted',
+          actionData: { item_name: itemToDelete.name },
+        });
+      }
     } catch (err) {
       console.error('Error deleting item:', err);
       setError('Failed to delete item');
@@ -156,20 +193,13 @@ export function usePantry(): UsePantryReturn {
       setError('You must be logged in to use items');
       return;
     }
-
     setError(null);
-
     try {
-      // Get current item
       const currentItem = pantryItems.find((item) => item.id === id);
       if (!currentItem) {
         throw new Error('Item not found');
       }
-
-      // Calculate new quantity
       const newQuantity = Math.max(0, currentItem.quantity - amount);
-
-      // Create usage history entry
       const usageEntry: UsageHistoryEntry = {
         amount,
         timestamp: new Date().toISOString(),
@@ -178,29 +208,34 @@ export function usePantry(): UsePantryReturn {
         recipe_name: options?.recipe_name,
         meal_plan_id: options?.meal_plan_id,
       };
-
-      // Get existing usage history
       const existingHistory = currentItem.usage_history || [];
       const newHistory = [...existingHistory, usageEntry];
-
-      // Update in database
-      const { data, error: updateError } = await supabase
+      let query = supabase
         .from('pantry_items')
         .update({
           quantity: newQuantity,
           usage_history: newHistory,
         })
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
-
+        .eq('id', id);
+      if (isHouseholdMode && householdId) {
+        query = query.eq('household_id', householdId);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+      const { data, error: updateError } = await query.select().single();
       if (updateError) throw updateError;
-
-      // Update local state
       if (data) {
         setPantryItems((prev) =>
           prev.map((item) => (item.id === id ? data : item))
+        );
+        
+        // Record impact
+        await gamificationService.recordImpact(
+          user.id,
+          currentItem,
+          'rescued',
+          amount,
+          isHouseholdMode ? householdId : null
         );
       }
     } catch (err) {
@@ -215,40 +250,30 @@ export function usePantry(): UsePantryReturn {
       setError('You must be logged in to restore items');
       return;
     }
-
     setError(null);
-
     try {
-      // Get current item
       const currentItem = pantryItems.find((item) => item.id === id);
       if (!currentItem) {
-        // Item may have been deleted, nothing to restore
         return;
       }
-
-      // Calculate restored quantity (don't exceed original if set)
       const originalQuantity = currentItem.original_quantity || currentItem.quantity + amount;
       const newQuantity = Math.min(originalQuantity, currentItem.quantity + amount);
-
-      // Remove usage history entries for this meal plan
       const existingHistory = currentItem.usage_history || [];
       const newHistory = existingHistory.filter((entry) => entry.meal_plan_id !== mealPlanId);
-
-      // Update in database
-      const { data, error: updateError } = await supabase
+      let query = supabase
         .from('pantry_items')
         .update({
           quantity: newQuantity,
           usage_history: newHistory,
         })
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
-
+        .eq('id', id);
+      if (isHouseholdMode && householdId) {
+        query = query.eq('household_id', householdId);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+      const { data, error: updateError } = await query.select().single();
       if (updateError) throw updateError;
-
-      // Update local state
       if (data) {
         setPantryItems((prev) =>
           prev.map((item) => (item.id === id ? data : item))

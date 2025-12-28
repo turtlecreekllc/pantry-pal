@@ -3,7 +3,7 @@
     "name": "Pantry Pal",
     "slug": "pantry-pal",
     "owner": "turtle-creek-llc",
-    "version": "1.5.5",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,11 +17,18 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.turtlecreekllc.pantrypal",
+      "associatedDomains": [
+        "applinks:pantrypal.com"
+      ],
       "infoPlist": {
         "NSCameraUsageDescription": "Pantry Pal needs camera access to scan product barcodes",
+        "NSCalendarsUsageDescription": "Pantry Pal needs calendar access to sync your meal plans",
+        "NSRemindersUsageDescription": "Pantry Pal needs reminders access to set meal reminders",
+        "NSHealthShareUsageDescription": "Pantry Pal needs access to write nutrition data to HealthKit.",
+        "NSHealthUpdateUsageDescription": "Pantry Pal needs access to update nutrition data in HealthKit.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "23",
+      "buildNumber": "25",
       "splash": {
         "backgroundColor": "#4CAF50",
         "resizeMode": "contain"
@@ -36,9 +43,38 @@
       "package": "com.turtlecreekllc.pantrypal",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.health.READ_NUTRITION",
+        "android.permission.health.WRITE_NUTRITION"
       ],
-      "versionCode": 7
+      "intentFilters": [
+        {
+          "action": "android.intent.action.SEND",
+          "category": [
+            "android.intent.category.DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "text/plain"
+            }
+          ]
+        },
+        {
+          "action": "android.intent.action.VIEW",
+          "category": [
+            "android.intent.category.DEFAULT",
+            "android.intent.category.BROWSABLE"
+          ],
+          "data": [
+            {
+              "scheme": "pantry-pal"
+            }
+          ]
+        }
+      ],
+      "versionCode": 12
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -51,6 +87,20 @@
         "expo-camera",
         {
           "cameraPermission": "Pantry Pal needs camera access to scan product barcodes"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Pantry Pal needs calendar access to sync your meal plans",
+          "remindersPermission": "Pantry Pal needs reminders access to set meal reminders"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#4CAF50"
         }
       ],
       "expo-font",

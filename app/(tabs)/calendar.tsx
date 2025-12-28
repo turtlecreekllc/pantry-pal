@@ -6,6 +6,10 @@ import { MealCalendar } from '../../components/MealCalendar';
 import { MealCompletionModal } from '../../components/MealCompletionModal';
 import { useMealPlans } from '../../hooks/useMealPlans';
 import { usePantry } from '../../hooks/usePantry';
+import { useCalendar } from '../../hooks/useCalendar';
+import { useHealth } from '../../context/HealthContext';
+import { useHouseholdContext } from '../../context/HouseholdContext';
+import { saveNutritionToHealth } from '../../lib/healthService';
 import { MealPlan, MealType, ExtendedRecipe, IngredientDeduction } from '../../lib/types';
 import { getRecipeDetails } from '../../lib/recipeService';
 
@@ -16,8 +20,15 @@ export default function CalendarScreen() {
   const [recipeForCompletion, setRecipeForCompletion] = useState<ExtendedRecipe | null>(null);
   const [isLoadingRecipe, setIsLoadingRecipe] = useState(false);
 
-  const { mealPlans, completeMeal, deleteMealPlan, refreshMealPlans } = useMealPlans();
-  const { pantryItems, restoreItem, refreshPantry } = usePantry();
+  const { activeHousehold } = useHouseholdContext();
+  const { mealPlans, completeMeal, deleteMealPlan, refreshMealPlans } = useMealPlans({
+    householdId: activeHousehold?.id,
+  });
+  const { pantryItems, restoreItem, refreshPantry } = usePantry({
+    householdId: activeHousehold?.id,
+  });
+  const { removeMealEvent } = useCalendar();
+  const { isHealthSyncEnabled } = useHealth();
 
   const handleAddMeal = (date: string, mealType: MealType) => {
     router.push({
@@ -76,6 +87,7 @@ export default function CalendarScreen() {
               await deleteMealPlan(meal.id, {
                 onRestore: restoreItem,
               });
+              await removeMealEvent(meal.id);
               await refreshPantry();
             } catch (error) {
               console.error('Error deleting meal:', error);
@@ -93,9 +105,31 @@ export default function CalendarScreen() {
     try {
       await completeMeal(completingMeal.id, deductions);
       await refreshPantry();
+
+      // Sync to Health if enabled
+      let syncMessage = '';
+      if (isHealthSyncEnabled && recipeForCompletion?.nutrition) {
+        // Use the planned date but current time, or just current time?
+        // Let's use current time as "consumed at"
+        const consumedAt = new Date();
+        
+        const success = await saveNutritionToHealth(
+          recipeForCompletion.nutrition,
+          consumedAt,
+          completingMeal.meal_type,
+          completingMeal.recipe_name
+        );
+
+        if (success) {
+          syncMessage = ' and synced to Health app';
+        } else {
+          syncMessage = ' (Health sync failed)';
+        }
+      }
+
       setCompletingMeal(null);
       setRecipeForCompletion(null);
-      Alert.alert('Success', 'Meal marked as complete!');
+      Alert.alert('Success', `Meal marked as complete${syncMessage}!`);
     } catch (error) {
       console.error('Error completing meal:', error);
       Alert.alert('Error', 'Failed to complete meal. Please try again.');

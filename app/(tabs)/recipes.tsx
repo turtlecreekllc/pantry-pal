@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../hooks/useRecipes';
 import { usePantry } from '../../hooks/usePantry';
+import { useHouseholdContext } from '../../context/HouseholdContext';
 import { RecipeCard } from '../../components/RecipeCard';
 import { ScoredRecipeCard } from '../../components/ScoredRecipeCard';
 import { IngredientSelector } from '../../components/IngredientSelector';
@@ -32,8 +33,9 @@ export default function RecipesScreen() {
   const [scoredRecipes, setScoredRecipes] = useState<ScoredRecipe[]>([]);
   const [scoredLoading, setScoredLoading] = useState(false);
 
+  const { activeHousehold } = useHouseholdContext();
   const { recipes, loading, searchRecipes, clearRecipes } = useRecipes();
-  const { pantryItems } = usePantry();
+  const { pantryItems } = usePantry({ householdId: activeHousehold?.id });
 
   const selectedPantryItems = useMemo(() =>
     pantryItems.filter(item => selectedIngredientIds.has(item.id)),
