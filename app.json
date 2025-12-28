@@ -28,7 +28,7 @@
         "NSHealthUpdateUsageDescription": "Pantry Pal needs access to update nutrition data in HealthKit.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "25",
+      "buildNumber": "26",
       "splash": {
         "backgroundColor": "#4CAF50",
         "resizeMode": "contain"
@@ -74,7 +74,7 @@
           ]
         }
       ],
-      "versionCode": 13
+      "versionCode": 14
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -113,7 +113,15 @@
         }
       ],
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "extra": {
       "router": {},
