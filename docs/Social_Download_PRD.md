@@ -1,7 +1,7 @@
 # Product Requirements Document
 ## Recipe Management & Meal Planning System
 
-**Pantry Pal**  
+**DinnerPlans**  
 Version 1.0 | December 2024
 
 ---
@@ -9,7 +9,7 @@ Version 1.0 | December 2024
 | Field | Value |
 |-------|-------|
 | **Document Owner** | Shane (Product Lead) |
-| **Product** | Pantry Pal |
+| **Product** | DinnerPlans |
 | **Feature** | Recipe Management & Meal Planning |
 | **Status** | Draft |
 | **Target Release** | Q2 2025 |
@@ -18,9 +18,9 @@ Version 1.0 | December 2024
 
 ## Executive Summary
 
-This PRD outlines the integration of comprehensive recipe management and meal planning functionality into Pantry Pal. Drawing inspiration from successful applications like ReciMe (4.8 stars, 161K+ ratings), this feature set will transform Pantry Pal from a pantry tracking tool into a complete kitchen management ecosystem that actively reduces food waste through intelligent recipe suggestions and meal planning.
+This PRD outlines the integration of comprehensive recipe management and meal planning functionality into DinnerPlans. Drawing inspiration from successful applications like ReciMe (4.8 stars, 161K+ ratings), this feature set will transform DinnerPlans from a pantry tracking tool into a complete kitchen management ecosystem that actively reduces food waste through intelligent recipe suggestions and meal planning.
 
-The core innovation lies in connecting Pantry Pal's existing barcode-scanning inventory system with recipe management, enabling AI-powered suggestions that prioritize ingredients nearing expiration. This creates a unique value proposition:
+The core innovation lies in connecting DinnerPlans's existing barcode-scanning inventory system with recipe management, enabling AI-powered suggestions that prioritize ingredients nearing expiration. This creates a unique value proposition:
 
 > ***"Use what you have, waste nothing, eat well."***
 
@@ -38,7 +38,7 @@ The core innovation lies in connecting Pantry Pal's existing barcode-scanning in
 
 ### Market Opportunity
 
-The recipe management app market is validated by ReciMe's success (161K ratings, $30-60/year subscription). However, no current solution integrates real-time pantry inventory with recipe management. This gap represents Pantry Pal's competitive moat.
+The recipe management app market is validated by ReciMe's success (161K ratings, $30-60/year subscription). However, no current solution integrates real-time pantry inventory with recipe management. This gap represents DinnerPlans's competitive moat.
 
 ---
 
@@ -172,7 +172,7 @@ Enable users to import recipes from any source into a unified, structured format
 
 **Priority:** P0 (Critical) — Core Differentiator | **Effort:** High
 
-> 💡 **KEY DIFFERENTIATOR:** This is Pantry Pal's competitive moat. No other recipe app connects real-time pantry inventory with recipe suggestions. This feature alone justifies the premium subscription.
+> 💡 **KEY DIFFERENTIATOR:** This is DinnerPlans's competitive moat. No other recipe app connects real-time pantry inventory with recipe suggestions. This feature alone justifies the premium subscription.
 
 #### 3.1 "What Can I Make?" Engine
 
@@ -400,7 +400,7 @@ This PRD draws inspiration from [ReciMe](https://apps.apple.com/us/app/recime-re
 
 ### Related Documents
 
-- Pantry Pal Core PRD
+- DinnerPlans Core PRD
 - Barcode Scanning Technical Specification
 - AI Integration Architecture
 - Competitive Analysis: Cooklist, Paprika, Mealime

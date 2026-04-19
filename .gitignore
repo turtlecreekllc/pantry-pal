@@ -31,8 +31,15 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
 .env
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
 
 # GCP service account credentials
 pantry-pal-*.json
@@ -42,9 +49,5 @@ pantry-pal-*.json
 # Claude Code local state
 .claude/
 
-# typescript
-*.tsbuildinfo
-
-# generated native folders
-/ios
-/android
+# Local backups
+.backups/

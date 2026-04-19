@@ -59,8 +59,8 @@ export function useNotifications(): UseNotificationsReturn {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastNotification, setLastNotification] = useState<Notifications.Notification | null>(null);
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
 
   const loadPreferences = useCallback(async () => {
     if (!user) {
@@ -130,19 +130,57 @@ export function useNotifications(): UseNotificationsReturn {
   }, [checkTokenStatus, loadPreferences]);
 
   useEffect(() => {
-    notificationListener.current = addNotificationReceivedListener((notification) => {
-      setLastNotification(notification);
-    });
-    responseListener.current = addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      handleNotificationResponse(data);
-    });
+    let isMounted = true;
+    // Defer notification listener setup to avoid TurboModule crashes during startup
+    const setupListeners = (): void => {
+      if (!isMounted) return;
+      try {
+        const receivedListener = addNotificationReceivedListener((notification) => {
+          if (isMounted) {
+            setLastNotification(notification);
+          }
+        });
+        if (receivedListener && isMounted) {
+          notificationListener.current = receivedListener;
+        }
+        const responseReceivedListener = addNotificationResponseReceivedListener((response) => {
+          if (!isMounted) return;
+          try {
+            const data = response?.notification?.request?.content?.data;
+            if (data) {
+              handleNotificationResponse(data);
+            }
+          } catch (parseError) {
+            console.warn('[Notifications] Error parsing notification response:', parseError);
+          }
+        });
+        if (responseReceivedListener && isMounted) {
+          responseListener.current = responseReceivedListener;
+        }
+      } catch (error) {
+        console.warn('[Notifications] Failed to setup notification listeners:', error);
+      }
+    };
+    // Longer delay to ensure native modules are fully ready and avoid TurboModule race conditions
+    const timeoutId = setTimeout(setupListeners, 500);
     return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        try {
+          notificationListener.current.remove();
+        } catch (error) {
+          console.warn('[Notifications] Error removing notification listener:', error);
+        }
+        notificationListener.current = null;
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        try {
+          responseListener.current.remove();
+        } catch (error) {
+          console.warn('[Notifications] Error removing response listener:', error);
+        }
+        responseListener.current = null;
       }
     };
   }, []);

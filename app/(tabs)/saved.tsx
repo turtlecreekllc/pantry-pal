@@ -15,8 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSavedRecipes } from '../../hooks/useSavedRecipes';
 import { EmptyState } from '../../components/EmptyState';
 import { SavedRecipe } from '../../lib/types';
+import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
 
-export default function SavedRecipesScreen() {
+export default function SavedRecipesScreen(): React.ReactElement {
   const router = useRouter();
   const { savedRecipes, loading, refreshSavedRecipes } = useSavedRecipes();
   const [searchText, setSearchText] = useState('');
@@ -31,20 +32,28 @@ export default function SavedRecipesScreen() {
     );
   }, [savedRecipes, searchText]);
 
-  const handleRecipePress = (recipe: SavedRecipe) => {
+  const handleRecipePress = (recipe: SavedRecipe): void => {
     router.push(`/recipe/${recipe.recipe_id}`);
   };
 
-  const renderRecipeCard = ({ item }: { item: SavedRecipe }) => (
+  const renderRecipeCard = ({ item }: { item: SavedRecipe }): React.ReactElement => (
     <TouchableOpacity
       style={styles.recipeCard}
       onPress={() => handleRecipePress(item)}
       activeOpacity={0.8}
+      accessibilityLabel={item.recipe_data.name}
+      accessibilityRole="button"
     >
-      <Image
-        source={{ uri: item.recipe_data.thumbnail }}
-        style={styles.recipeImage}
-      />
+      {item.recipe_data.thumbnail ? (
+        <Image
+          source={{ uri: item.recipe_data.thumbnail }}
+          style={styles.recipeImage}
+        />
+      ) : (
+        <View style={[styles.recipeImage, styles.recipeImagePlaceholder]}>
+          <Ionicons name="restaurant-outline" size={48} color={colors.brownMuted} />
+        </View>
+      )}
       <View style={styles.recipeOverlay}>
         <Text style={styles.recipeName} numberOfLines={2}>
           {item.recipe_data.name}
@@ -55,32 +64,32 @@ export default function SavedRecipesScreen() {
           )}
           {item.rating && (
             <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={12} color="#FFC107" />
+              <Ionicons name="star" size={12} color={colors.primary} />
               <Text style={styles.ratingText}>{item.rating}</Text>
             </View>
           )}
         </View>
       </View>
       <View style={styles.savedBadge}>
-        <Ionicons name="heart" size={16} color="#ff4081" />
+        <Ionicons name="heart" size={16} color={colors.coral} />
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={18} color="#666" />
+        <Ionicons name="search" size={18} color={colors.brownMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search saved recipes..."
           value={searchText}
           onChangeText={setSearchText}
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.brownMuted}
         />
         {searchText.length > 0 && (
           <TouchableOpacity onPress={() => setSearchText('')}>
-            <Ionicons name="close-circle" size={18} color="#999" />
+            <Ionicons name="close-circle" size={18} color={colors.brownMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -99,8 +108,8 @@ export default function SavedRecipesScreen() {
           <RefreshControl
             refreshing={loading}
             onRefresh={refreshSavedRecipes}
-            colors={['#4CAF50']}
-            tintColor="#4CAF50"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
         ListEmptyComponent={
@@ -123,8 +132,10 @@ export default function SavedRecipesScreen() {
         style={styles.fab}
         onPress={() => router.push('/import')}
         activeOpacity={0.8}
+        accessibilityLabel="Import recipe"
+        accessibilityRole="button"
       >
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={28} color={colors.brown} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -133,26 +144,29 @@ export default function SavedRecipesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.cream,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    margin: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 8,
+    backgroundColor: colors.white,
+    margin: spacing.space4,
+    paddingHorizontal: spacing.space3,
+    paddingVertical: spacing.space3,
+    borderRadius: borderRadius.lg,
+    gap: spacing.space2,
+    borderWidth: 2,
+    borderColor: colors.brownMuted,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#333',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brown,
   },
   listContent: {
-    paddingHorizontal: 12,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.space3,
+    paddingBottom: spacing.space4,
   },
   emptyListContent: {
     flex: 1,
@@ -163,76 +177,84 @@ const styles = StyleSheet.create({
   recipeCard: {
     width: '48%',
     aspectRatio: 0.9,
-    marginBottom: 12,
-    borderRadius: 12,
+    marginBottom: spacing.space3,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.brown,
+    ...shadows.sm,
   },
   recipeImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
+  recipeImagePlaceholder: {
+    backgroundColor: colors.creamLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   recipeOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: spacing.space3,
+    backgroundColor: colors.primary,
+    borderTopWidth: 2,
+    borderTopColor: colors.brown,
   },
   recipeName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
   },
   recipeFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: spacing.space1,
   },
   recipeCategory: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textXs,
+    color: colors.brownLight,
   },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.space1,
   },
   ratingText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '500',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textXs,
+    color: colors.brown,
+    fontWeight: typography.fontMedium,
   },
   savedBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 12,
-    padding: 4,
+    top: spacing.space2,
+    right: spacing.space2,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.full,
+    padding: spacing.space1,
+    borderWidth: 1,
+    borderColor: colors.brown,
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
+    bottom: spacing.space6,
+    right: spacing.space6,
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: '#4CAF50',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 8,
+    borderWidth: 2,
+    borderColor: colors.brown,
+    ...shadows.md,
   },
 });

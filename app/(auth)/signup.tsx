@@ -13,8 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { colors, typography, spacing, borderRadius } from '../../lib/theme';
 
-export default function SignUpScreen() {
+export default function SignUpScreen(): React.ReactElement {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,10 +23,9 @@ export default function SignUpScreen() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { signUp, loading } = useAuth();
 
-  const handleSignUp = async () => {
+  const handleSignUp = async (): Promise<void> => {
     setError(null);
     setSuccessMessage(null);
-
     if (!email.trim()) {
       setError('Please enter your email');
       return;
@@ -42,7 +42,6 @@ export default function SignUpScreen() {
       setError('Passwords do not match');
       return;
     }
-
     const { error: signUpError, message } = await signUp(email.trim(), password);
     if (signUpError) {
       setError(signUpError.message || 'Failed to create account');
@@ -63,9 +62,7 @@ export default function SignUpScreen() {
         >
           <View style={styles.header}>
             <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>
-              Join Pantry Pal to start tracking your food
-            </Text>
+            <Text style={styles.subtitle}>Join DinnerPlans to start tracking your food</Text>
           </View>
 
           <View style={styles.form}>
@@ -108,7 +105,7 @@ export default function SignUpScreen() {
             )}
 
             <Button
-              title={successMessage ? "Resend Email" : "Create Account"}
+              title={successMessage ? 'Resend Email' : 'Create Account'}
               onPress={handleSignUp}
               loading={loading}
               disabled={!!successMessage}
@@ -133,7 +130,7 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   keyboardView: {
     flex: 1,
@@ -141,21 +138,23 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: spacing.space6,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: spacing.space12,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    marginBottom: 8,
+    fontFamily: 'Quicksand-Bold',
+    fontSize: typography.text3xl,
+    fontWeight: typography.fontBold,
+    color: colors.primary,
+    marginBottom: spacing.space2,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brownMuted,
     textAlign: 'center',
   },
   form: {
@@ -164,38 +163,44 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   errorText: {
-    color: '#f44336',
-    fontSize: 14,
-    marginBottom: 16,
+    fontFamily: 'Nunito-Medium',
+    color: colors.error,
+    fontSize: typography.textSm,
+    marginBottom: spacing.space4,
     textAlign: 'center',
   },
   successContainer: {
-    backgroundColor: '#E8F5E9',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
+    backgroundColor: colors.successBg,
+    padding: spacing.space4,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.space4,
+    borderWidth: 1,
+    borderColor: colors.success,
   },
   successText: {
-    color: '#2E7D32',
-    fontSize: 14,
+    fontFamily: 'Nunito-Medium',
+    color: colors.success,
+    fontSize: typography.textSm,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: typography.textSm * 1.5,
   },
   button: {
-    marginTop: 8,
+    marginTop: spacing.space2,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
+    marginTop: spacing.space6,
   },
   footerText: {
-    color: '#666',
-    fontSize: 14,
+    fontFamily: 'Nunito-Regular',
+    color: colors.brownMuted,
+    fontSize: typography.textSm,
   },
   linkText: {
-    color: '#4CAF50',
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Nunito-SemiBold',
+    color: colors.coral,
+    fontSize: typography.textSm,
+    fontWeight: typography.fontSemibold,
   },
 });

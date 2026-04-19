@@ -111,7 +111,8 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       const invites = await getUserPendingInvites(user.email);
       setPendingInvites(invites);
     } catch (err) {
-      console.error('Error fetching invites:', err);
+      // Non-critical error - invites are optional functionality
+      console.warn('[HouseholdContext] Could not fetch invites:', err);
     }
   }, [user?.email]);
 

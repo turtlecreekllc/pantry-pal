@@ -1,16 +1,9 @@
 import { ScannedItem, ReceiptScanResult, PhotoScanResult, RecipeCardScanResult, Location, Unit, ImportedRecipe } from './types';
+import { callClaudeVision } from './claudeService';
+import { compressImageForClaude } from './imageUtils';
 
 // Generate unique IDs
 const generateId = () => Math.random().toString(36).substring(2, 15);
-
-// Get API key from environment
-const getOpenAIKey = (): string => {
-  const key = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!key) {
-    throw new Error('EXPO_PUBLIC_OPENAI_API_KEY is not configured. Please add it to your .env file.');
-  }
-  return key;
-};
 
 // Parse unit string to Unit type
 function parseUnit(unitStr: string): Unit {
@@ -83,23 +76,38 @@ Respond ONLY with valid JSON, no markdown or explanation:
 }`;
 
 const SHELF_PROMPT = `Analyze this photo of a kitchen shelf, cupboard, refrigerator, or pantry and identify all visible food items.
-For each item you can clearly identify, provide:
-- name: The product name
-- quantity: Estimated quantity visible (number of items, bottles, cans, etc.)
-- unit: The unit (item, oz, lb, g, kg, ml, l) - use "item" for countable items
+
+For each item you can clearly identify, provide DETAILED quantity information:
+- name: The product name (clean, descriptive name)
+- unitCount: Number of packages, cans, bottles, boxes, or individual items visible (e.g., 3 for "3 cans")
+- volumeQuantity: Size/volume per unit if visible on label (e.g., 12 for "12 oz can") - use null if not visible
+- volumeUnit: Unit for the volume (oz, lb, g, kg, ml, l) - use null if no volume visible
 - brand: Brand name if visible on packaging (null if not readable)
 - category: One of (Produce, Dairy, Meat, Pantry, Frozen, Beverages, Snacks, Other)
+- fillLevel: For containers (oils, spices, sauces), estimate fill level: "full", "3/4", "1/2", "1/4", "almost-empty" - use null for sealed/unopened items
 - confidence: Your confidence in the identification (0.0 to 1.0)
 
 IMPORTANT:
-- Only include items you can clearly see and identify
+- Be specific with quantity: prefer "3 cans of 12 oz" over "36 oz"
+- Look for size labels on packaging (12 oz, 16 oz, 1 lb, etc.)
+- For produce, estimate reasonable quantities
+- Use fillLevel only for opened/transparent containers where fill is visible
 - Estimate quantities conservatively
 - For partially visible items, use lower confidence scores
 
 Respond ONLY with valid JSON, no markdown or explanation:
 {
   "items": [
-    {"name": "...", "quantity": 1, "unit": "item", "brand": "..." or null, "category": "...", "confidence": 0.9}
+    {
+      "name": "Chicken Broth",
+      "unitCount": 3,
+      "volumeQuantity": 14.5,
+      "volumeUnit": "oz",
+      "brand": "Swanson",
+      "category": "Pantry",
+      "fillLevel": null,
+      "confidence": 0.95
+    }
   ]
 }`;
 
@@ -138,17 +146,6 @@ Respond ONLY with valid JSON, no markdown or explanation:
   "confidence": 0.9
 }`;
 
-interface OpenAIResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-  error?: {
-    message: string;
-  };
-}
-
 interface ParsedReceiptResponse {
   items: Array<{
     name: string;
@@ -166,60 +163,18 @@ interface ParsedReceiptResponse {
 interface ParsedShelfResponse {
   items: Array<{
     name: string;
-    quantity: number;
-    unit: string;
+    quantity?: number;
+    unit?: string;
+    unitCount?: number;
+    volumeQuantity?: number | null;
+    volumeUnit?: string | null;
     brand?: string | null;
     category?: string;
+    fillLevel?: string | null;
     confidence: number;
   }>;
 }
 
-async function callOpenAIVision(imageBase64: string, prompt: string): Promise<string> {
-  const apiKey = getOpenAIKey();
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:image/jpeg;base64,${imageBase64}`,
-                detail: 'high',
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 2000,
-      temperature: 0.1,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      `OpenAI API error: ${response.status} - ${(errorData as OpenAIResponse).error?.message || response.statusText}`
-    );
-  }
-
-  const data: OpenAIResponse = await response.json();
-
-  if (!data.choices?.[0]?.message?.content) {
-    throw new Error('Invalid response from OpenAI API');
-  }
-
-  return data.choices[0].message.content;
-}
 
 function parseJSONResponse<T>(content: string): T {
   // Remove markdown code blocks if present
@@ -243,7 +198,8 @@ function parseJSONResponse<T>(content: string): T {
 }
 
 export async function analyzeReceiptImage(imageBase64: string): Promise<ReceiptScanResult> {
-  const content = await callOpenAIVision(imageBase64, RECEIPT_PROMPT);
+  const compressed = await compressImageForClaude(imageBase64);
+  const content = await callClaudeVision(RECEIPT_PROMPT, compressed, 'image/jpeg');
   const parsed = parseJSONResponse<ParsedReceiptResponse>(content);
 
   const items: ScannedItem[] = (parsed.items || []).map((item) => ({
@@ -275,24 +231,56 @@ export async function analyzeShelfPhoto(
   imageBase64: string,
   location: Location
 ): Promise<PhotoScanResult> {
-  const content = await callOpenAIVision(imageBase64, SHELF_PROMPT);
+  const compressed = await compressImageForClaude(imageBase64);
+  const content = await callClaudeVision(SHELF_PROMPT, compressed, 'image/jpeg');
   const parsed = parseJSONResponse<ParsedShelfResponse>(content);
 
-  const items: ScannedItem[] = (parsed.items || []).map((item) => ({
-    id: generateId(),
-    name: item.name,
-    quantity: item.quantity || 1,
-    unit: parseUnit(item.unit || 'item'),
-    brand: item.brand || undefined,
-    category: item.category,
-    confidence: Math.min(1, Math.max(0, item.confidence || 0.8)),
-    status: 'pending' as const,
-    originalData: {
+  const items: ScannedItem[] = (parsed.items || []).map((item) => {
+    // Handle both old format (quantity/unit) and new format (unitCount/volumeQuantity/volumeUnit)
+    const unitCount = item.unitCount || item.quantity || 1;
+    const volumeQuantity = item.volumeQuantity || undefined;
+    const volumeUnit = item.volumeUnit ? parseUnit(item.volumeUnit) : undefined;
+
+    // Calculate total quantity
+    let totalQuantity: number;
+    let finalUnit: Unit;
+
+    if (volumeQuantity && volumeUnit) {
+      // New dual-quantity format: e.g., 3 cans of 12 oz = 36 oz total
+      totalQuantity = unitCount * volumeQuantity;
+      finalUnit = volumeUnit;
+    } else {
+      // Simple quantity: e.g., 3 items
+      totalQuantity = unitCount;
+      finalUnit = item.unit ? parseUnit(item.unit) : 'item';
+    }
+
+    // Parse fill level if provided
+    const validFillLevels = ['full', '3/4', '1/2', '1/4', 'almost-empty'];
+    const fillLevel = item.fillLevel && validFillLevels.includes(item.fillLevel)
+      ? (item.fillLevel as 'full' | '3/4' | '1/2' | '1/4' | 'almost-empty')
+      : undefined;
+
+    return {
+      id: generateId(),
       name: item.name,
-      quantity: item.quantity || 1,
-      unit: parseUnit(item.unit || 'item'),
-    },
-  }));
+      quantity: totalQuantity,
+      unit: finalUnit,
+      unitCount: unitCount,
+      volumeQuantity: volumeQuantity,
+      volumeUnit: volumeUnit,
+      brand: item.brand || undefined,
+      category: item.category,
+      fillLevel: fillLevel,
+      confidence: Math.min(1, Math.max(0, item.confidence || 0.8)),
+      status: 'pending' as const,
+      originalData: {
+        name: item.name,
+        quantity: totalQuantity,
+        unit: finalUnit,
+      },
+    };
+  });
 
   return {
     items,
@@ -302,7 +290,8 @@ export async function analyzeShelfPhoto(
 }
 
 export async function analyzeRecipeCard(imageBase64: string): Promise<RecipeCardScanResult> {
-  const content = await callOpenAIVision(imageBase64, RECIPE_CARD_PROMPT);
+  const compressed = await compressImageForClaude(imageBase64);
+  const content = await callClaudeVision(RECIPE_CARD_PROMPT, compressed, 'image/jpeg');
   const parsed = parseJSONResponse<{ recipe: any; confidence: number }>(content);
 
   const recipe: Partial<ImportedRecipe> = {

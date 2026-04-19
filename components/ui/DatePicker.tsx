@@ -5,10 +5,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -25,20 +25,27 @@ interface DatePickerProps {
   compact?: boolean;
 }
 
+interface CalendarDay {
+  day: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isSelected: boolean;
+}
+
 export function DatePicker({
   value,
   onChange,
   label,
   placeholder = 'Select date',
   compact = false,
-}: DatePickerProps) {
+}: DatePickerProps): React.ReactElement {
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState(value || new Date());
   const [viewMonth, setViewMonth] = useState((value || new Date()).getMonth());
   const [viewYear, setViewYear] = useState((value || new Date()).getFullYear());
   const [showYearPicker, setShowYearPicker] = useState(false);
 
-  const formatDate = (date: Date | null) => {
+  const formatDate = (date: Date | null): string => {
     if (!date) return placeholder;
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -47,16 +54,16 @@ export function DatePicker({
     });
   };
 
-  const handleClear = () => {
+  const handleClear = (): void => {
     onChange(null);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = (): void => {
     onChange(tempDate);
     setShowPicker(false);
   };
 
-  const handleCancel = () => {
+  const handleCancel = (): void => {
     setTempDate(value || new Date());
     const resetDate = value || new Date();
     setViewMonth(resetDate.getMonth());
@@ -64,7 +71,7 @@ export function DatePicker({
     setShowPicker(false);
   };
 
-  const setQuickDate = (days: number) => {
+  const setQuickDate = (days: number): void => {
     const newDate = new Date();
     newDate.setDate(newDate.getDate() + days);
     setTempDate(newDate);
@@ -72,12 +79,12 @@ export function DatePicker({
     setViewYear(newDate.getFullYear());
   };
 
-  const handleDaySelect = (day: number) => {
+  const handleDaySelect = (day: number): void => {
     const newDate = new Date(viewYear, viewMonth, day);
     setTempDate(newDate);
   };
 
-  const handlePrevMonth = () => {
+  const handlePrevMonth = (): void => {
     if (viewMonth === 0) {
       setViewMonth(11);
       setViewYear(viewYear - 1);
@@ -86,7 +93,7 @@ export function DatePicker({
     }
   };
 
-  const handleNextMonth = () => {
+  const handleNextMonth = (): void => {
     if (viewMonth === 11) {
       setViewMonth(0);
       setViewYear(viewYear + 1);
@@ -95,20 +102,16 @@ export function DatePicker({
     }
   };
 
-  const handleYearSelect = (year: number) => {
+  const handleYearSelect = (year: number): void => {
     setViewYear(year);
     setShowYearPicker(false);
   };
 
-  // Generate calendar days for the current view month
-  const calendarDays = useMemo(() => {
+  const calendarDays = useMemo((): CalendarDay[] => {
     const firstDay = new Date(viewYear, viewMonth, 1).getDay();
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
     const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
-
-    const days: { day: number; isCurrentMonth: boolean; isToday: boolean; isSelected: boolean }[] = [];
-
-    // Previous month's trailing days
+    const days: CalendarDay[] = [];
     for (let i = firstDay - 1; i >= 0; i--) {
       days.push({
         day: daysInPrevMonth - i,
@@ -117,8 +120,6 @@ export function DatePicker({
         isSelected: false,
       });
     }
-
-    // Current month's days
     const today = new Date();
     for (let i = 1; i <= daysInMonth; i++) {
       const isToday =
@@ -136,9 +137,7 @@ export function DatePicker({
         isSelected,
       });
     }
-
-    // Next month's leading days
-    const remainingCells = 42 - days.length; // 6 rows * 7 days
+    const remainingCells = 42 - days.length;
     for (let i = 1; i <= remainingCells; i++) {
       days.push({
         day: i,
@@ -147,12 +146,10 @@ export function DatePicker({
         isSelected: false,
       });
     }
-
     return days;
   }, [viewMonth, viewYear, tempDate]);
 
-  // Generate year options (current year - 1 to current year + 5)
-  const yearOptions = useMemo(() => {
+  const yearOptions = useMemo((): number[] => {
     const currentYear = new Date().getFullYear();
     const years: number[] = [];
     for (let y = currentYear - 1; y <= currentYear + 5; y++) {
@@ -173,14 +170,16 @@ export function DatePicker({
           setViewYear(dateToUse.getFullYear());
           setShowPicker(true);
         }}
+        accessibilityRole="button"
+        accessibilityLabel={label || 'Select date'}
       >
-        <Ionicons name="calendar-outline" size={compact ? 16 : 20} color="#666" />
+        <Ionicons name="calendar-outline" size={compact ? 16 : 20} color={colors.brownMuted} />
         <Text style={[styles.dateText, compact && styles.dateTextCompact, !value && styles.placeholder]}>
           {formatDate(value)}
         </Text>
         {value && !compact && (
-          <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
-            <Ionicons name="close-circle" size={20} color="#999" />
+          <TouchableOpacity onPress={handleClear} style={styles.clearButton} accessibilityLabel="Clear date">
+            <Ionicons name="close-circle" size={20} color={colors.brownMuted} />
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -195,66 +194,44 @@ export function DatePicker({
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Expiration Date</Text>
 
-            {/* Quick buttons */}
             <View style={styles.quickButtons}>
-              <TouchableOpacity
-                style={styles.quickButton}
-                onPress={() => setQuickDate(0)}
-              >
+              <TouchableOpacity style={styles.quickButton} onPress={() => setQuickDate(0)}>
                 <Text style={styles.quickButtonText}>Today</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.quickButton}
-                onPress={() => setQuickDate(7)}
-              >
+              <TouchableOpacity style={styles.quickButton} onPress={() => setQuickDate(7)}>
                 <Text style={styles.quickButtonText}>+1 Week</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.quickButton}
-                onPress={() => setQuickDate(30)}
-              >
+              <TouchableOpacity style={styles.quickButton} onPress={() => setQuickDate(30)}>
                 <Text style={styles.quickButtonText}>+1 Month</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Month/Year Navigation */}
             <View style={styles.monthYearNav}>
-              <TouchableOpacity onPress={handlePrevMonth} style={styles.navArrow}>
-                <Ionicons name="chevron-back" size={24} color="#4CAF50" />
+              <TouchableOpacity onPress={handlePrevMonth} style={styles.navArrow} accessibilityLabel="Previous month">
+                <Ionicons name="chevron-back" size={24} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.monthYearButton}
                 onPress={() => setShowYearPicker(!showYearPicker)}
               >
-                <Text style={styles.monthYearText}>
-                  {MONTHS[viewMonth]} {viewYear}
-                </Text>
-                <Ionicons name="chevron-down" size={16} color="#666" />
+                <Text style={styles.monthYearText}>{MONTHS[viewMonth]} {viewYear}</Text>
+                <Ionicons name="chevron-down" size={16} color={colors.brownMuted} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleNextMonth} style={styles.navArrow}>
-                <Ionicons name="chevron-forward" size={24} color="#4CAF50" />
+              <TouchableOpacity onPress={handleNextMonth} style={styles.navArrow} accessibilityLabel="Next month">
+                <Ionicons name="chevron-forward" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
-            {/* Year Picker Dropdown */}
             {showYearPicker && (
               <View style={styles.yearPickerContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {yearOptions.map((year) => (
                     <TouchableOpacity
                       key={year}
-                      style={[
-                        styles.yearOption,
-                        year === viewYear && styles.yearOptionSelected,
-                      ]}
+                      style={[styles.yearOption, year === viewYear && styles.yearOptionSelected]}
                       onPress={() => handleYearSelect(year)}
                     >
-                      <Text
-                        style={[
-                          styles.yearOptionText,
-                          year === viewYear && styles.yearOptionTextSelected,
-                        ]}
-                      >
+                      <Text style={[styles.yearOptionText, year === viewYear && styles.yearOptionTextSelected]}>
                         {year}
                       </Text>
                     </TouchableOpacity>
@@ -263,16 +240,12 @@ export function DatePicker({
               </View>
             )}
 
-            {/* Days of Week Header */}
             <View style={styles.daysOfWeekRow}>
               {DAYS_OF_WEEK.map((day) => (
-                <Text key={day} style={styles.dayOfWeekText}>
-                  {day}
-                </Text>
+                <Text key={day} style={styles.dayOfWeekText}>{day}</Text>
               ))}
             </View>
 
-            {/* Calendar Grid */}
             <View style={styles.calendarGrid}>
               {calendarDays.map((dayInfo, index) => (
                 <TouchableOpacity
@@ -304,7 +277,6 @@ export function DatePicker({
               ))}
             </View>
 
-            {/* Selected Date Display */}
             <View style={styles.selectedDateDisplay}>
               <Text style={styles.selectedDateText}>
                 {tempDate.toLocaleDateString('en-US', {
@@ -317,16 +289,10 @@ export function DatePicker({
             </View>
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={handleCancel}
-              >
+              <TouchableOpacity style={styles.modalButton} onPress={handleCancel}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={handleConfirm}
-              >
+              <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={handleConfirm}>
                 <Text style={styles.confirmButtonText}>Confirm</Text>
               </TouchableOpacity>
             </View>
@@ -339,142 +305,154 @@ export function DatePicker({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: spacing.space4,
   },
   containerCompact: {
     marginBottom: 0,
     alignSelf: 'flex-start',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 6,
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
+    color: colors.brown,
+    marginBottom: spacing.space2,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.brownMuted,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space4,
   },
   inputContainerCompact: {
     height: 48,
     paddingVertical: 0,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingHorizontal: spacing.space3,
   },
   dateText: {
     flex: 1,
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 10,
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brown,
+    marginLeft: spacing.space3,
   },
   dateTextCompact: {
     flex: 0,
-    fontSize: 14,
-    marginLeft: 6,
+    fontSize: typography.textSm,
+    marginLeft: spacing.space2,
   },
   placeholder: {
-    color: '#999',
+    color: colors.brownMuted,
   },
   clearButton: {
-    padding: 4,
+    padding: spacing.space1,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(61, 35, 20, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.brown,
+    padding: spacing.space5,
     width: '95%',
     maxWidth: 400,
+    ...shadows.lg,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.space4,
   },
   quickButtons: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 16,
+    marginBottom: spacing.space4,
   },
   quickButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 20,
+    paddingVertical: spacing.space2,
+    paddingHorizontal: spacing.space4,
+    backgroundColor: colors.peach,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+    borderColor: colors.brown,
   },
   quickButtonText: {
-    fontSize: 14,
-    color: '#666',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    color: colors.brown,
   },
   monthYearNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: spacing.space3,
   },
   navArrow: {
-    padding: 8,
+    padding: spacing.space2,
   },
   monthYearButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    gap: 4,
+    paddingVertical: spacing.space2,
+    paddingHorizontal: spacing.space3,
+    backgroundColor: colors.cream,
+    borderRadius: borderRadius.sm,
+    gap: spacing.space1,
   },
   monthYearText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textBase,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
   },
   yearPickerContainer: {
-    marginBottom: 12,
-    paddingVertical: 8,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    marginBottom: spacing.space3,
+    paddingVertical: spacing.space2,
+    backgroundColor: colors.cream,
+    borderRadius: borderRadius.sm,
   },
   yearOption: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginHorizontal: 4,
-    borderRadius: 16,
+    paddingVertical: spacing.space2,
+    paddingHorizontal: spacing.space4,
+    marginHorizontal: spacing.space1,
+    borderRadius: borderRadius.full,
   },
   yearOptionSelected: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.primary,
   },
   yearOptionText: {
-    fontSize: 14,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textSm,
+    color: colors.brownMuted,
   },
   yearOptionTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
+    color: colors.brown,
+    fontFamily: 'Nunito-SemiBold',
+    fontWeight: typography.fontSemibold,
   },
   daysOfWeekRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: spacing.space2,
   },
   dayOfWeekText: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#999',
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textXs,
+    fontWeight: typography.fontSemibold,
+    color: colors.brownMuted,
   },
   calendarGrid: {
     flexDirection: 'row',
@@ -491,61 +469,69 @@ const styles = StyleSheet.create({
   },
   calendarDayToday: {
     borderWidth: 2,
-    borderColor: '#4CAF50',
-    borderRadius: 20,
+    borderColor: colors.primary,
+    borderRadius: borderRadius.full,
   },
   calendarDaySelected: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 20,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
   },
   calendarDayText: {
-    fontSize: 14,
-    color: '#333',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textSm,
+    color: colors.brown,
   },
   calendarDayTextOtherMonth: {
-    color: '#999',
+    color: colors.brownMuted,
   },
   calendarDayTextToday: {
-    color: '#4CAF50',
-    fontWeight: '600',
+    color: colors.primary,
+    fontFamily: 'Nunito-SemiBold',
+    fontWeight: typography.fontSemibold,
   },
   calendarDayTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
+    color: colors.brown,
+    fontFamily: 'Nunito-SemiBold',
+    fontWeight: typography.fontSemibold,
   },
   selectedDateDisplay: {
-    marginTop: 12,
-    paddingVertical: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    marginTop: spacing.space3,
+    paddingVertical: spacing.space3,
+    backgroundColor: colors.cream,
+    borderRadius: borderRadius.sm,
     alignItems: 'center',
   },
   selectedDateText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
+    color: colors.brown,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 16,
+    gap: spacing.space3,
+    marginTop: spacing.space4,
   },
   modalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space5,
+    borderRadius: borderRadius.md,
   },
   confirmButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.brown,
   },
   cancelButtonText: {
-    fontSize: 16,
-    color: '#666',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textBase,
+    color: colors.brownMuted,
   },
   confirmButtonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textBase,
+    color: colors.brown,
+    fontWeight: typography.fontSemibold,
   },
 });

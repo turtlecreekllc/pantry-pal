@@ -1,114 +1,230 @@
-import React, { useState } from 'react';
-import { Tabs } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, TouchableOpacity } from 'react-native';
+import { Platform, TouchableOpacity, View, StyleSheet, Image } from 'react-native';
 import { SettingsMenu } from '../../components/SettingsMenu';
+import { MembershipBadge } from '../../components/MembershipBadge';
+import { useUserPreferences } from '../../hooks/useUserPreferences';
+import { colors, typography, spacing, borderRadius } from '../../lib/theme';
 
-export default function TabLayout() {
+/** Header logo component for Tonight screen */
+function HeaderLogo(): React.ReactElement {
+  return (
+    <Image
+      source={require('../../assets/DinnerPlansai_banner-tight-transparent.png')}
+      style={styles.headerLogo}
+      resizeMode="contain"
+    />
+  );
+}
+
+/**
+ * Tab Layout - New Navigation Structure
+ * 
+ * Per PRD, the new navigation is:
+ * 1. Tonight (Home) - "What's for Dinner?" 
+ * 2. Plan - Weekly Meal Calendar
+ * 3. Pantry - Inventory Management (demoted from home)
+ * 4. Grocery - Smart Shopping List
+ * 5. More - Settings, Saved, Chat, Profile
+ * 
+ * Hidden tabs (accessible via navigation):
+ * - index (redirects to tonight)
+ * - calendar (replaced by plan)
+ * - chat (moved to More)
+ * - recipes (accessible from tonight/plan)
+ * - saved (moved to More)
+ * - scan (modal)
+ */
+export default function TabLayout(): React.ReactElement {
   const [showSettings, setShowSettings] = useState(false);
+  const router = useRouter();
+  const { onboardingCompleted, loading: preferencesLoading } = useUserPreferences();
+  
+  // Redirect to onboarding if not completed
+  useEffect(() => {
+    // Wait for preferences to load
+    if (preferencesLoading) return;
+    
+    // If onboarding not completed, redirect to onboarding
+    if (!onboardingCompleted) {
+      router.replace('/onboarding');
+    }
+  }, [onboardingCompleted, preferencesLoading, router]);
 
   return (
     <>
       <Tabs
+        initialRouteName="tonight"
         screenOptions={{
-          tabBarActiveTintColor: '#4CAF50',
-          tabBarInactiveTintColor: '#8E8E93',
+          tabBarActiveTintColor: colors.brown,
+          tabBarInactiveTintColor: colors.brownMuted,
           tabBarStyle: {
-            backgroundColor: '#fff',
-            borderTopColor: '#C6C6C8',
-            borderTopWidth: 0.5,
-            paddingTop: 8,
-            height: Platform.OS === 'ios' ? 88 : 60,
+            backgroundColor: colors.white,
+            borderTopColor: colors.brown,
+            borderTopWidth: 2,
+            paddingTop: spacing.space2,
+            height: Platform.OS === 'ios' ? 88 : 68,
           },
           tabBarLabelStyle: {
-            fontSize: 10,
-            fontWeight: '500',
+            fontFamily: 'Nunito-Medium',
+            fontSize: typography.textXs,
+            fontWeight: typography.fontMedium,
           },
           tabBarIconStyle: {
-            marginTop: 4,
+            marginTop: spacing.space1,
           },
           headerStyle: {
-            backgroundColor: '#4CAF50',
+            backgroundColor: colors.primary,
+            borderBottomWidth: 2,
+            borderBottomColor: colors.brown,
           },
-          headerTintColor: '#fff',
+          headerTintColor: colors.brown,
           headerTitleStyle: {
-            fontWeight: '600',
-            fontSize: 17,
+            fontFamily: 'Quicksand-Bold',
+            fontWeight: typography.fontBold,
+            fontSize: typography.textLg,
+            color: colors.brown,
           },
           headerShadowVisible: false,
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => setShowSettings(true)}
-              style={{ marginLeft: 16, padding: 4 }}
+              style={styles.menuButton}
+              accessibilityLabel="Open settings menu"
+              accessibilityRole="button"
             >
-              <Ionicons name="menu" size={24} color="#fff" />
+              <Ionicons name="menu" size={24} color={colors.brown} />
             </TouchableOpacity>
           ),
+          headerRight: () => <MembershipBadge />,
         }}
       >
+        {/* PRIMARY TABS - New Navigation Structure */}
+        
+        {/* 1. Tonight - NEW HOME (What's for Dinner?) */}
         <Tabs.Screen
-          name="index"
+          name="tonight"
           options={{
-            title: 'Pantry Pal',
+            headerTitle: () => <HeaderLogo />,
+            tabBarLabel: 'Tonight',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Ionicons name="restaurant" size={22} color={focused ? colors.brown : color} />
+              </View>
+            ),
+          }}
+        />
+        
+        {/* 2. Plan - Weekly Meal Calendar */}
+        <Tabs.Screen
+          name="plan"
+          options={{
+            title: 'Plan',
+            tabBarLabel: 'Plan',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Ionicons name="calendar" size={22} color={focused ? colors.brown : color} />
+              </View>
+            ),
+          }}
+        />
+        
+        {/* 3. Pantry - Inventory Management (demoted from home) */}
+        <Tabs.Screen
+          name="pantry"
+          options={{
+            title: 'Pantry',
             tabBarLabel: 'Pantry',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="home" size={size} color={color} />
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Ionicons name="file-tray-stacked" size={22} color={focused ? colors.brown : color} />
+              </View>
             ),
           }}
         />
-        <Tabs.Screen
-          name="recipes"
-          options={{
-            title: 'Recipes',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="book" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="calendar"
-          options={{
-            title: 'Calendar',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="calendar" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="chat"
-          options={{
-            title: 'Chat',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="chatbubbles" size={size} color={color} />
-            ),
-          }}
-        />
+        
+        {/* 4. Grocery - Smart Shopping List */}
         <Tabs.Screen
           name="grocery"
           options={{
             title: 'Grocery',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="cart" size={size} color={color} />
+            tabBarLabel: 'Grocery',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Ionicons name="cart" size={22} color={focused ? colors.brown : color} />
+              </View>
             ),
           }}
         />
+        
+        {/* 5. More - Settings, Saved, Chat, Profile */}
         <Tabs.Screen
-          name="saved"
+          name="more"
           options={{
-            title: 'Saved',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="heart" size={size} color={color} />
+            title: 'More',
+            tabBarLabel: 'More',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIcon, focused && styles.tabIconActive]}>
+                <Ionicons name="menu" size={22} color={focused ? colors.brown : color} />
+              </View>
             ),
+          }}
+        />
+        
+        {/* HIDDEN TABS - Accessible via navigation but not shown in tab bar */}
+        
+        {/* Index route - redirects to tonight (see index.tsx) */}
+        <Tabs.Screen
+          name="index"
+          options={{
+            headerShown: false,
             tabBarItemStyle: { display: 'none' },
           }}
         />
+        
+        {/* Old Calendar - replaced by Plan */}
+        <Tabs.Screen
+          name="calendar"
+          options={{
+            title: 'Calendar',
+            href: '/plan', // Redirect to plan
+            tabBarItemStyle: { display: 'none' },
+          }}
+        />
+        
+        {/* Chat - moved to More, but still accessible */}
+        <Tabs.Screen
+          name="chat"
+          options={{
+            title: 'Chat with Pepper',
+            tabBarItemStyle: { display: 'none' },
+          }}
+        />
+        
+        {/* Recipes - accessible from tonight/plan */}
+        <Tabs.Screen
+          name="recipes"
+          options={{
+            title: 'Recipes',
+            tabBarItemStyle: { display: 'none' },
+          }}
+        />
+        
+        {/* Saved - moved to More */}
+        <Tabs.Screen
+          name="saved"
+          options={{
+            title: 'Saved Recipes',
+            tabBarItemStyle: { display: 'none' },
+          }}
+        />
+        
+        {/* Scan - modal */}
         <Tabs.Screen
           name="scan"
           options={{
             title: 'Scan',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="scan" size={size} color={color} />
-            ),
             headerShown: false,
             tabBarItemStyle: { display: 'none' },
           }}
@@ -119,3 +235,25 @@ export default function TabLayout() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  headerLogo: {
+    height: 32,
+    width: 160,
+  },
+  menuButton: {
+    marginLeft: spacing.space4,
+    padding: spacing.space1,
+    borderRadius: borderRadius.sm,
+  },
+  tabIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.full,
+  },
+  tabIconActive: {
+    backgroundColor: colors.primary,
+  },
+});

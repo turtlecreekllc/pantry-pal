@@ -1,11 +1,9 @@
 import { PantryItem, RecipePreview, ChatMessage } from './types';
 import { searchRecipes, searchByIngredients } from './recipeService';
-
-const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+import { callClaudeWithTools } from './claudeService';
 
 // System prompt for the AI assistant
-const SYSTEM_PROMPT = `You are a friendly kitchen companion AI assistant for Pantry Pal, a smart pantry management app.
+const SYSTEM_PROMPT = `You are a friendly kitchen companion AI assistant for DinnerPlans, a smart pantry management app.
 
 Your role is to help users:
 - Discover recipes based on ingredients they have
@@ -26,13 +24,13 @@ When responding:
 - Be specific about quantities and items when discussing pantry contents
 - If asked to update inventory, confirm the changes clearly`;
 
-// Define available functions for OpenAI function calling
-const FUNCTIONS = [
+// Claude tool definitions (equivalent to OpenAI functions)
+const TOOLS = [
   {
     name: 'get_pantry_items',
-    description: 'Get all items currently in the user\'s pantry with details about quantity, location, and expiration',
-    parameters: {
-      type: 'object',
+    description: "Get all items currently in the user's pantry with details about quantity, location, and expiration",
+    input_schema: {
+      type: 'object' as const,
       properties: {
         location: {
           type: 'string',
@@ -45,8 +43,8 @@ const FUNCTIONS = [
   {
     name: 'get_expiring_items',
     description: 'Get items that are expiring soon (within the next 7 days)',
-    parameters: {
-      type: 'object',
+    input_schema: {
+      type: 'object' as const,
       properties: {
         days: {
           type: 'number',
@@ -58,8 +56,8 @@ const FUNCTIONS = [
   {
     name: 'search_recipes',
     description: 'Search for recipes by name or keywords',
-    parameters: {
-      type: 'object',
+    input_schema: {
+      type: 'object' as const,
       properties: {
         query: {
           type: 'string',
@@ -72,8 +70,8 @@ const FUNCTIONS = [
   {
     name: 'search_recipes_by_ingredients',
     description: 'Search for recipes that use specific ingredients from the pantry',
-    parameters: {
-      type: 'object',
+    input_schema: {
+      type: 'object' as const,
       properties: {
         ingredients: {
           type: 'array',
@@ -87,8 +85,8 @@ const FUNCTIONS = [
   {
     name: 'check_pantry_for_item',
     description: 'Check if a specific item exists in the pantry and return its details',
-    parameters: {
-      type: 'object',
+    input_schema: {
+      type: 'object' as const,
       properties: {
         itemName: {
           type: 'string',
@@ -122,7 +120,6 @@ function buildPantryContext(pantryItems: PantryItem[]): string {
 
   let context = `Current pantry inventory (${pantryItems.length} total items):\n\n`;
 
-  // Add items by location
   for (const [location, items] of Object.entries(byLocation)) {
     if (items.length > 0) {
       context += `${location.charAt(0).toUpperCase() + location.slice(1)} (${items.length} items):\n`;
@@ -156,40 +153,41 @@ function buildPantryContext(pantryItems: PantryItem[]): string {
   return context;
 }
 
-// Execute function calls from OpenAI
-async function executeFunctionCall(
-  functionName: string,
+// Execute tool calls from Claude
+async function executeToolCall(
+  toolName: string,
   args: any,
   pantryItems: PantryItem[]
-): Promise<any> {
-  switch (functionName) {
+): Promise<string> {
+  switch (toolName) {
     case 'get_pantry_items': {
       const location = args.location || 'all';
-      if (location === 'all') {
-        return pantryItems;
-      }
-      return pantryItems.filter((item) => item.location === location);
+      const result = location === 'all'
+        ? pantryItems
+        : pantryItems.filter((item) => item.location === location);
+      return JSON.stringify(result);
     }
 
     case 'get_expiring_items': {
       const days = args.days || 7;
       const currentTime = new Date();
-      return pantryItems.filter((item) => {
+      const result = pantryItems.filter((item) => {
         if (!item.expiration_date) return false;
         const expDate = new Date(item.expiration_date);
         const daysUntilExpiry = (expDate.getTime() - currentTime.getTime()) / (1000 * 60 * 60 * 24);
         return daysUntilExpiry >= 0 && daysUntilExpiry <= days;
       });
+      return JSON.stringify(result);
     }
 
     case 'search_recipes': {
       const recipes = await searchRecipes(args.query);
-      return recipes.slice(0, 5); // Limit to top 5 results
+      return JSON.stringify(recipes.slice(0, 5));
     }
 
     case 'search_recipes_by_ingredients': {
       const recipes = await searchByIngredients(args.ingredients);
-      return recipes.slice(0, 5); // Limit to top 5 results
+      return JSON.stringify(recipes.slice(0, 5));
     }
 
     case 'check_pantry_for_item': {
@@ -197,11 +195,11 @@ async function executeFunctionCall(
       const matchingItems = pantryItems.filter((item) =>
         item.name.toLowerCase().includes(itemName) || itemName.includes(item.name.toLowerCase())
       );
-      return matchingItems;
+      return JSON.stringify(matchingItems);
     }
 
     default:
-      return null;
+      return JSON.stringify({ error: `Unknown tool: ${toolName}` });
   }
 }
 
@@ -211,130 +209,56 @@ export async function sendChatMessage(
   pantryItems: PantryItem[],
   conversationHistory: ChatMessage[] = []
 ): Promise<ChatMessage> {
-  if (!OPENAI_API_KEY) {
-    throw new Error('OpenAI API key not configured. Please add EXPO_PUBLIC_OPENAI_API_KEY to your .env file.');
-  }
-
   try {
-    // Build messages array for OpenAI
-    const messages = [
-      {
-        role: 'system',
-        content: SYSTEM_PROMPT + '\n\nCurrent time: ' + new Date().toISOString() + '\n\n' + buildPantryContext(pantryItems),
-      },
-      // Add conversation history (last 10 messages to avoid token limits)
+    const systemPrompt = SYSTEM_PROMPT + '\n\nCurrent time: ' + new Date().toISOString() + '\n\n' + buildPantryContext(pantryItems);
+
+    const initialMessages = [
       ...conversationHistory.slice(-10).map((msg) => ({
-        role: msg.role,
+        role: msg.role as 'user' | 'assistant',
         content: msg.content,
       })),
-      {
-        role: 'user',
-        content: userMessage,
-      },
+      { role: 'user' as const, content: userMessage },
     ];
 
-    // Initial API call
-    let response = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages,
-        functions: FUNCTIONS,
-        function_call: 'auto',
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
-    }
-
-    let data = await response.json();
-    let assistantMessage = data.choices[0].message;
-
-    // Handle function calls
     const collectedRecipes: RecipePreview[] = [];
     const collectedItems: PantryItem[] = [];
-    let functionCallCount = 0;
-    const maxFunctionCalls = 5; // Prevent infinite loops
 
-    while (assistantMessage.function_call && functionCallCount < maxFunctionCalls) {
-      functionCallCount++;
+    const result = await callClaudeWithTools(
+      systemPrompt,
+      TOOLS,
+      initialMessages,
+      async (toolName: string, toolInput: any) => {
+        const toolResult = await executeToolCall(toolName, toolInput, pantryItems);
 
-      const functionName = assistantMessage.function_call.name;
-      const functionArgs = JSON.parse(assistantMessage.function_call.arguments);
-
-      // Execute the function
-      const functionResult = await executeFunctionCall(functionName, functionArgs, pantryItems);
-
-      // Collect recipes and items for the response
-      if (functionName === 'search_recipes' || functionName === 'search_recipes_by_ingredients') {
-        if (Array.isArray(functionResult)) {
-          collectedRecipes.push(...functionResult);
+        // Collect recipes and items for the response metadata
+        const parsed = JSON.parse(toolResult);
+        if (Array.isArray(parsed)) {
+          if (toolName === 'search_recipes' || toolName === 'search_recipes_by_ingredients') {
+            collectedRecipes.push(...parsed);
+          } else if (
+            toolName === 'get_expiring_items' ||
+            toolName === 'check_pantry_for_item' ||
+            toolName === 'get_pantry_items'
+          ) {
+            collectedItems.push(...parsed);
+          }
         }
-      } else if (functionName === 'get_expiring_items' || functionName === 'check_pantry_for_item' || functionName === 'get_pantry_items') {
-        if (Array.isArray(functionResult)) {
-          collectedItems.push(...functionResult);
-        }
+
+        return toolResult;
       }
+    );
 
-      // Add function call and result to messages
-      messages.push({
-        role: 'assistant',
-        content: assistantMessage.content || '',
-        function_call: assistantMessage.function_call,
-      } as any);
-
-      messages.push({
-        role: 'function',
-        name: functionName,
-        content: JSON.stringify(functionResult),
-      } as any);
-
-      // Make another API call with the function result
-      response = await fetch(OPENAI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages,
-          functions: FUNCTIONS,
-          function_call: 'auto',
-          temperature: 0.7,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
-      }
-
-      data = await response.json();
-      assistantMessage = data.choices[0].message;
-    }
-
-    // Create the chat message response
     const chatMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'assistant',
-      content: assistantMessage.content || 'I found some information for you.',
+      content: result.text || 'I found some information for you.',
       timestamp: new Date().toISOString(),
     };
 
-    // Add recipes if any were found
     if (collectedRecipes.length > 0) {
       chatMessage.recipes = collectedRecipes;
     }
 
-    // Add items if any were found
     if (collectedItems.length > 0) {
       chatMessage.items = collectedItems;
     }
@@ -363,7 +287,6 @@ export function getSuggestedPrompts(pantryItems: PantryItem[]): string[] {
   ];
 
   if (hasItems) {
-    // Add item-specific suggestions
     const hasChicken = pantryItems.some((item) => item.name.toLowerCase().includes('chicken'));
     const hasEggs = pantryItems.some((item) => item.name.toLowerCase().includes('egg'));
 
@@ -377,9 +300,13 @@ export function getSuggestedPrompts(pantryItems: PantryItem[]): string[] {
 
     suggestions.push("Do I have eggs?");
   } else {
-    suggestions.push("How do I add items?");
-    suggestions.push("What is Pantry Pal?");
+    suggestions.push("Help me stock my pantry");
+    suggestions.push("What should I buy this week?");
   }
 
-  return suggestions;
+  if (expiringItems.length > 0) {
+    suggestions.push(`Use up my ${expiringItems[0].name}`);
+  }
+
+  return suggestions.slice(0, 4);
 }

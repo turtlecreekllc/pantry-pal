@@ -2,14 +2,29 @@ import * as Calendar from 'expo-calendar';
 import { Platform } from 'react-native';
 import { MealPlan } from './types';
 
-const PANTRY_PAL_CALENDAR_NAME = 'Pantry Pal Meals';
-const PANTRY_PAL_CALENDAR_COLOR = '#4CAF50';
+const DINNER_PLANS_CALENDAR_NAME = 'Dinner Plans Meals';
+const DINNER_PLANS_CALENDAR_COLOR = '#4CAF50';
+
+/** Thrown when no calendar source supports creating new calendars */
+export class CalendarCreationNotSupportedError extends Error {
+  constructor() {
+    super('No calendar source supports creating new calendars. Please select an existing calendar.');
+    this.name = 'CalendarCreationNotSupportedError';
+  }
+}
 
 export interface CalendarConfig {
   calendarId: string | null;
   syncEnabled: boolean;
   remindersEnabled: boolean;
   reminderMinutes: number;
+}
+
+export interface WritableCalendar {
+  id: string;
+  title: string;
+  color: string;
+  source: string;
 }
 
 export const CalendarService = {
@@ -32,47 +47,110 @@ export const CalendarService = {
     return await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
   },
 
+  /**
+   * Gets all calendars that support modifications (for user selection)
+   */
+  async getWritableCalendars(): Promise<WritableCalendar[]> {
+    const calendars = await this.getCalendars();
+    return calendars
+      .filter((c) => c.allowsModifications)
+      .map((c) => ({
+        id: c.id,
+        title: c.title,
+        color: c.color || '#4CAF50',
+        source: c.source?.name || 'Unknown',
+      }));
+  },
+
   async getDefaultCalendarSource() {
     const defaultCalendar = await Calendar.getDefaultCalendarAsync();
     return defaultCalendar.source;
   },
 
+  /**
+   * Finds a calendar source that supports creating new calendars
+   * Prioritizes: Local > iCloud > CalDAV > other sources
+   */
+  async findWritableCalendarSource(): Promise<Calendar.Source | null> {
+    const calendars = await this.getCalendars();
+    const sources = new Map<string, Calendar.Source>();
+    for (const cal of calendars) {
+      if (cal.source?.id && !sources.has(cal.source.id)) {
+        sources.set(cal.source.id, cal.source);
+      }
+    }
+    const sourceList = Array.from(sources.values());
+    const priorityOrder = [
+      Calendar.SourceType.LOCAL,
+      Calendar.SourceType.CALDAV,
+      Calendar.SourceType.SUBSCRIBED,
+    ];
+    for (const sourceType of priorityOrder) {
+      const source = sourceList.find((s) => s.type === sourceType);
+      if (source) {
+        return source;
+      }
+    }
+    const nonExchangeSource = sourceList.find(
+      (s) => s.type !== Calendar.SourceType.EXCHANGE && s.type !== Calendar.SourceType.MOBILEME
+    );
+    if (nonExchangeSource) {
+      return nonExchangeSource;
+    }
+    return null;
+  },
+
   async getCalendar(calendarId: string) {
     try {
-      const calendar = await Calendar.getCalendarAsync(calendarId);
+      const calendar = await Calendar.getCalendarsAsync(calendarId);
       return calendar;
     } catch (e) {
       return null;
     }
   },
 
-  async createPantryPalCalendar(): Promise<string> {
+  async createDinnerPlansCalendar(): Promise<string> {
     const calendars = await this.getCalendars();
     const existingCalendar = calendars.find(
-      (c) => c.title === PANTRY_PAL_CALENDAR_NAME && c.allowsModifications
+      (c) => c.title === DINNER_PLANS_CALENDAR_NAME && c.allowsModifications
     );
-
     if (existingCalendar) {
       return existingCalendar.id;
     }
-
-    const defaultSource =
-      Platform.OS === 'ios'
-        ? await this.getDefaultCalendarSource()
-        : { isLocalAccount: true, name: 'Pantry Pal', type: Calendar.SourceType.LOCAL };
-
-    const newCalendarId = await Calendar.createCalendarAsync({
-      title: PANTRY_PAL_CALENDAR_NAME,
-      color: PANTRY_PAL_CALENDAR_COLOR,
-      entityType: Calendar.EntityTypes.EVENT,
-      sourceId: defaultSource.id,
-      source: defaultSource,
-      name: PANTRY_PAL_CALENDAR_NAME,
-      ownerAccount: 'personal',
-      accessLevel: Calendar.CalendarAccessLevel.OWNER,
-    });
-
-    return newCalendarId;
+    let calendarSource: Calendar.Source | { isLocalAccount: boolean; name: string; type: Calendar.SourceType; id?: string };
+    if (Platform.OS === 'ios') {
+      const writableSource = await this.findWritableCalendarSource();
+      if (!writableSource) {
+        throw new CalendarCreationNotSupportedError();
+      }
+      calendarSource = writableSource;
+    } else {
+      calendarSource = { 
+        isLocalAccount: true, 
+        name: 'Dinner Plans', 
+        type: Calendar.SourceType.LOCAL 
+      };
+    }
+    try {
+      const newCalendarId = await Calendar.createCalendarAsync({
+        title: DINNER_PLANS_CALENDAR_NAME,
+        color: DINNER_PLANS_CALENDAR_COLOR,
+        entityType: Calendar.EntityTypes.EVENT,
+        sourceId: calendarSource.id,
+        source: calendarSource as Calendar.Source,
+        name: DINNER_PLANS_CALENDAR_NAME,
+        ownerAccount: 'personal',
+        accessLevel: Calendar.CalendarAccessLevel.OWNER,
+      });
+      return newCalendarId;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('calendars to be added or removed') || 
+          errorMessage.includes('not allow')) {
+        throw new CalendarCreationNotSupportedError();
+      }
+      throw error;
+    }
   },
 
   async createEvent(calendarId: string, meal: MealPlan, reminderMinutes: number = 60): Promise<string> {
@@ -105,7 +183,7 @@ export const CalendarService = {
       startDate: eventDate,
       endDate: endDate,
       timeZone: 'UTC', 
-      notes: `Recipe: ${meal.recipe_name}\n\nPrepared with Pantry Pal`,
+      notes: `Recipe: ${meal.recipe_name}\n\nPrepared with Dinner Plans`,
       alarms: reminderMinutes > 0 ? [{ relativeOffset: -reminderMinutes }] : [],
     });
 
@@ -136,7 +214,7 @@ export const CalendarService = {
         title: `🍽️ ${meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1)}: ${meal.recipe_name}`,
         startDate: eventDate,
         endDate: endDate,
-        notes: `Recipe: ${meal.recipe_name}\n\nPrepared with Pantry Pal`,
+        notes: `Recipe: ${meal.recipe_name}\n\nPrepared with Dinner Plans`,
         alarms: reminderMinutes > 0 ? [{ relativeOffset: -reminderMinutes }] : [],
     });
   },

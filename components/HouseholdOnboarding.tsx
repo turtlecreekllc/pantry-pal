@@ -109,7 +109,7 @@ export function HouseholdOnboarding({ forceShow = false }: HouseholdOnboardingPr
       <View style={styles.iconCircle}>
         <Ionicons name="home" size={48} color="#4CAF50" />
       </View>
-      <Text style={styles.title}>Welcome to Pantry Pal!</Text>
+      <Text style={styles.title}>Welcome to DinnerPlans!</Text>
       <Text style={styles.description}>
         Get the most out of your pantry by sharing with your household. Sync pantry items, meal
         plans, and grocery lists with family members.

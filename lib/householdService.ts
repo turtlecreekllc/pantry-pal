@@ -211,19 +211,35 @@ export async function getHouseholdInvites(householdId: string): Promise<Househol
 
 /**
  * Gets pending invites for a user by email
+ * Returns empty array gracefully if there are permission issues
  */
 export async function getUserPendingInvites(email: string): Promise<HouseholdInvite[]> {
-  const { data, error } = await supabase
-    .from('household_invites')
-    .select('*, households(name)')
-    .eq('email', email.toLowerCase())
-    .eq('status', 'pending')
-    .gt('expires_at', new Date().toISOString());
-  if (error) throw new Error(error.message);
-  return (data || []).map((invite) => ({
-    ...invite,
-    household_name: (invite.households as { name: string })?.name,
-  }));
+  try {
+    const { data, error } = await supabase
+      .from('household_invites')
+      .select('*, households(name)')
+      .eq('email', email.toLowerCase())
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString());
+    
+    if (error) {
+      // Handle RLS permission errors gracefully
+      if (error.message.includes('permission denied')) {
+        console.warn('[Household] Unable to fetch invites - RLS policy needs update. Run the migration in supabase/migrations/20241230_fix_invite_rls.sql');
+        return [];
+      }
+      console.warn('[Household] Error fetching invites:', error.message);
+      return [];
+    }
+    
+    return (data || []).map((invite) => ({
+      ...invite,
+      household_name: (invite.households as { name: string })?.name,
+    }));
+  } catch (err) {
+    console.warn('[Household] Failed to fetch invites:', err);
+    return [];
+  }
 }
 
 /**
@@ -393,7 +409,7 @@ export async function transferOwnership({
 }
 
 /**
- * Log activity for household activity feed
+ * Log activity for household activity feed and send push notifications
  */
 export async function logActivity({
   householdId,
@@ -414,6 +430,51 @@ export async function logActivity({
   });
   if (error) {
     console.warn('Failed to log activity:', error.message);
+  }
+  sendHouseholdNotification({
+    householdId,
+    actorUserId: userId,
+    actionType,
+    actionData,
+  });
+}
+
+/**
+ * Send push notifications to household members (fire-and-forget)
+ */
+async function sendHouseholdNotification({
+  householdId,
+  actorUserId,
+  actionType,
+  actionData,
+}: {
+  householdId: string;
+  actorUserId: string;
+  actionType: string;
+  actionData: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    fetch(`${supabaseUrl}/functions/v1/send-household-notification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        householdId,
+        actorUserId,
+        actionType,
+        actionData,
+      }),
+    }).catch((err) => {
+      console.warn('Failed to send household notification:', err);
+    });
+  } catch (err) {
+    console.warn('Error sending household notification:', err);
   }
 }
 
@@ -475,7 +536,7 @@ export async function acceptInviteByToken({
  * Generate shareable invite link
  */
 export function generateInviteLink(token: string): string {
-  const baseUrl = process.env.EXPO_PUBLIC_APP_URL || 'pantrypal://';
+  const baseUrl = process.env.EXPO_PUBLIC_APP_URL || 'dinner-plans://';
   return `${baseUrl}invite/${token}`;
 }
 

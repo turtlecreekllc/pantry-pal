@@ -1,13 +1,13 @@
-# Pantry Pal - Claude Code Prompts
+# DinnerPlans - Claude Code Prompts
 
-These prompts are designed to be used sequentially with Claude Code to build the Pantry Pal app. Each prompt builds on the previous work. Copy and paste each prompt into Claude Code as you progress through development.
+These prompts are designed to be used sequentially with Claude Code to build the DinnerPlans app. Each prompt builds on the previous work. Copy and paste each prompt into Claude Code as you progress through development.
 
 ---
 
 ## Prompt 1: Project Initialization
 
 ```
-Initialize a new React Native Expo project called "pantry-pal" with the following specifications:
+Initialize a new React Native Expo project called "dinner-plans" with the following specifications:
 
 1. Use the Expo managed workflow with TypeScript template
 2. Install these dependencies:
@@ -26,9 +26,9 @@ Initialize a new React Native Expo project called "pantry-pal" with the followin
    - context/ directory for React Context providers
 
 4. Configure app.json with:
-   - App name: "Pantry Pal"
+   - App name: "DinnerPlans"
    - Bundle identifier: com.yourname.pantrypal
-   - Camera permission description: "Pantry Pal needs camera access to scan product barcodes"
+   - Camera permission description: "DinnerPlans needs camera access to scan product barcodes"
 
 5. Create a basic _layout.tsx with a root navigation structure
 
@@ -40,7 +40,7 @@ Run `npx expo install` to ensure all dependencies are compatible with the curren
 ## Prompt 2: Supabase Setup
 
 ```
-Set up Supabase integration for the pantry-pal project:
+Set up Supabase integration for the dinner-plans project:
 
 1. Create lib/supabase.ts with:
    - Supabase client initialization using environment variables
@@ -73,7 +73,7 @@ Note: I'll provide my actual Supabase credentials separately - just use placehol
 ## Prompt 3: Authentication Screens
 
 ```
-Create the authentication flow for pantry-pal:
+Create the authentication flow for dinner-plans:
 
 1. Create app/(auth)/_layout.tsx:
    - Simple stack navigator for auth screens

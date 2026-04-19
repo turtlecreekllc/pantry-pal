@@ -20,6 +20,7 @@ import { Button } from '../../components/ui/Button';
 import { QuantitySelector } from '../../components/ui/QuantitySelector';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { UnitSelector } from '../../components/ui/UnitSelector';
+import { ImageSearchButton } from '../../components/ImageSearchModal';
 import { Location, NutritionInfo, Unit } from '../../lib/types';
 
 export default function AddItemScreen() {
@@ -46,6 +47,7 @@ export default function AddItemScreen() {
   const [unit, setUnit] = useState<Unit>(parsedQty?.unit || 'item');
   const [location, setLocation] = useState<Location>('pantry');
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(params.imageUrl || null);
 
   const nutrition: NutritionInfo | null = params.nutrition
     ? JSON.parse(params.nutrition)
@@ -68,7 +70,7 @@ export default function AddItemScreen() {
         quantity,
         unit,
         expiration_date: expirationDate?.toISOString().split('T')[0] || null,
-        image_url: params.imageUrl || null,
+        image_url: imageUrl,
         nutrition_json: nutrition,
         location,
         location_notes: null,
@@ -120,13 +122,25 @@ export default function AddItemScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {params.imageUrl ? (
-            <Image source={{ uri: params.imageUrl }} style={styles.productImage} />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="nutrition" size={48} color="#ccc" />
-            </View>
-          )}
+          <TouchableOpacity style={styles.imageContainer}>
+            {imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={styles.productImage} />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="nutrition" size={48} color="#ccc" />
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={styles.imageSearchRow}>
+            <ImageSearchButton
+              productName={name}
+              brand={params.brand || undefined}
+              size={params.productQuantity || undefined}
+              onImageSelected={(url) => setImageUrl(url)}
+              hasImage={!!imageUrl}
+              compact
+            />
+          </View>
 
           <View style={styles.productInfo}>
             <Text style={styles.productName}>{params.name || 'Unknown Product'}</Text>
@@ -237,6 +251,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
   },
+  imageContainer: {
+    alignItems: 'center',
+  },
   productImage: {
     width: '100%',
     height: 200,
@@ -251,6 +268,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  imageSearchRow: {
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
   },
   productInfo: {
     alignItems: 'center',

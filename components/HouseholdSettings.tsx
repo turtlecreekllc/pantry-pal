@@ -15,6 +15,7 @@ import { useHouseholdContext } from '../context/HouseholdContext';
 import { useAuth } from '../context/AuthContext';
 import { removeMember, transferOwnership } from '../lib/householdService';
 import { HouseholdInviteModal } from './HouseholdInviteModal';
+import { ManagePendingInvites } from './ManagePendingInvites';
 
 interface HouseholdSettingsProps {
   visible: boolean;
@@ -264,11 +265,7 @@ export function HouseholdSettings({ visible, onClose }: HouseholdSettingsProps) 
                                                     onPress: async () => {
                                                         try {
                                                             if (!activeHousehold) return;
-                                                            await transferOwnership({
-                                                                householdId: activeHousehold.id,
-                                                                currentOwnerId: user!.id,
-                                                                newOwnerId: member.user_id,
-                                                            });
+                                                            await transferOwnership(member.user_id);
                                                             await refreshHouseholds();
                                                             onClose();
                                                         } catch (e: unknown) {
@@ -319,6 +316,15 @@ export function HouseholdSettings({ visible, onClose }: HouseholdSettingsProps) 
                 </View>
               ))}
             </View>
+
+            {isAdmin && activeHousehold && (
+              <View style={styles.section}>
+                <ManagePendingInvites 
+                  householdId={activeHousehold.id}
+                  onInvitesChange={refreshHouseholds}
+                />
+              </View>
+            )}
 
             <View style={styles.section}>
                 <TouchableOpacity

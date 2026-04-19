@@ -139,18 +139,22 @@ export async function getRandomRecipe(): Promise<Recipe | null> {
   }
 }
 
-// Helper function to normalize ingredient names for comparison
-function normalizeIngredient(name: string): string {
+// Helper function to normalize ingredient names for comparison - with null-safety
+function normalizeIngredient(name: string | null | undefined): string {
+  if (!name) return '';
   return name.toLowerCase()
     .replace(/[^a-z0-9\s]/g, '') // Remove special characters
     .replace(/\s+/g, ' ') // Normalize spaces
     .trim();
 }
 
-// Check if a pantry item name matches a recipe ingredient
-function ingredientMatches(pantryItemName: string, recipeIngredient: string): boolean {
+// Check if a pantry item name matches a recipe ingredient - with null-safety
+function ingredientMatches(pantryItemName: string | null | undefined, recipeIngredient: string | null | undefined): boolean {
+  if (!pantryItemName || !recipeIngredient) return false;
   const normalizedPantry = normalizeIngredient(pantryItemName);
   const normalizedRecipe = normalizeIngredient(recipeIngredient);
+
+  if (!normalizedPantry || !normalizedRecipe) return false;
 
   // Direct match
   if (normalizedPantry === normalizedRecipe) return true;
@@ -175,25 +179,28 @@ function ingredientMatches(pantryItemName: string, recipeIngredient: string): bo
   return false;
 }
 
-// Score a recipe based on how many ingredients match pantry items
+// Score a recipe based on how many ingredients match pantry items - with null-safety
 function scoreRecipe(recipe: Recipe, pantryItems: PantryItem[]): ScoredRecipe {
-  const pantryNames = pantryItems.map(item => item.name);
+  const ingredients = recipe.ingredients ?? [];
+  const pantryNames = (pantryItems ?? []).map(item => item?.name).filter(Boolean);
   const matchedIngredients: string[] = [];
   const missingIngredients: string[] = [];
 
-  for (const recipeIng of recipe.ingredients) {
+  for (const recipeIng of ingredients) {
+    const ingredientName = recipeIng?.ingredient;
+    if (!ingredientName) continue;
     const matched = pantryNames.some(pantryName =>
-      ingredientMatches(pantryName, recipeIng.ingredient)
+      ingredientMatches(pantryName, ingredientName)
     );
 
     if (matched) {
-      matchedIngredients.push(recipeIng.ingredient);
+      matchedIngredients.push(ingredientName);
     } else {
-      missingIngredients.push(recipeIng.ingredient);
+      missingIngredients.push(ingredientName);
     }
   }
 
-  const totalIngredients = recipe.ingredients.length;
+  const totalIngredients = ingredients.length;
   const matchScore = totalIngredients > 0
     ? Math.round((matchedIngredients.length / totalIngredients) * 100)
     : 0;

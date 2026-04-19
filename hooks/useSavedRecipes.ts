@@ -81,8 +81,16 @@ export function useSavedRecipes(): UseSavedRecipesReturn {
 
       setSavedRecipes((prev) => [data, ...prev]);
     } catch (err) {
-      console.error('Error saving recipe:', err);
-      setError('Failed to save recipe');
+      const error = err as { message?: string; code?: string; details?: string };
+      console.error('Error saving recipe to saved_recipes:', {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        recipeId: recipe.id,
+        recipeName: recipe.name,
+        hasThumbnail: !!recipe.thumbnail,
+      });
+      setError(error.message || 'Failed to save recipe');
       throw err;
     }
   };

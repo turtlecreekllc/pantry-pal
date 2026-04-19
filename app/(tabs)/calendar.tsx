@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MealCalendar } from '../../components/MealCalendar';
 import { MealCompletionModal } from '../../components/MealCompletionModal';
@@ -12,8 +12,9 @@ import { useHouseholdContext } from '../../context/HouseholdContext';
 import { saveNutritionToHealth } from '../../lib/healthService';
 import { MealPlan, MealType, ExtendedRecipe, IngredientDeduction } from '../../lib/types';
 import { getRecipeDetails } from '../../lib/recipeService';
+import { colors } from '../../lib/theme';
 
-export default function CalendarScreen() {
+export default function CalendarScreen(): React.ReactElement {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [completingMeal, setCompletingMeal] = useState<MealPlan | null>(null);
@@ -30,30 +31,32 @@ export default function CalendarScreen() {
   const { removeMealEvent } = useCalendar();
   const { isHealthSyncEnabled } = useHealth();
 
-  const handleAddMeal = (date: string, mealType: MealType) => {
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshMealPlans();
+      refreshPantry();
+    }, [refreshMealPlans, refreshPantry])
+  );
+
+  const handleAddMeal = (date: string, mealType: MealType): void => {
     router.push({
       pathname: '/meal/add',
       params: { date, mealType },
     });
   };
 
-  const handleMealPress = async (meal: MealPlan) => {
+  const handleMealPress = async (meal: MealPlan): Promise<void> => {
     if (meal.is_completed) {
-      // View completed meal details
       Alert.alert(
         'Meal Completed',
         `${meal.recipe_name} was completed on ${new Date(meal.completed_at!).toLocaleDateString()}.`,
         [
           { text: 'OK' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => handleDeleteMeal(meal),
-          },
+          { text: 'Delete', style: 'destructive', onPress: () => handleDeleteMeal(meal) },
         ]
       );
     } else {
-      // Start completion flow
       setCompletingMeal(meal);
       if (meal.recipe_id) {
         setIsLoadingRecipe(true);
@@ -69,9 +72,8 @@ export default function CalendarScreen() {
     }
   };
 
-  const handleDeleteMeal = async (meal: MealPlan) => {
+  const handleDeleteMeal = async (meal: MealPlan): Promise<void> => {
     const hasDeductions = meal.ingredient_deductions && meal.ingredient_deductions.length > 0;
-
     Alert.alert(
       'Delete Meal',
       hasDeductions
@@ -84,9 +86,7 @@ export default function CalendarScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteMealPlan(meal.id, {
-                onRestore: restoreItem,
-              });
+              await deleteMealPlan(meal.id, { onRestore: restoreItem });
               await removeMealEvent(meal.id);
               await refreshPantry();
             } catch (error) {
@@ -99,34 +99,26 @@ export default function CalendarScreen() {
     );
   };
 
-  const handleCompleteMeal = async (deductions: IngredientDeduction[]) => {
+  const handleCompleteMeal = async (deductions: IngredientDeduction[]): Promise<void> => {
     if (!completingMeal) return;
-
     try {
       await completeMeal(completingMeal.id, deductions);
       await refreshPantry();
-
-      // Sync to Health if enabled
       let syncMessage = '';
       if (isHealthSyncEnabled && recipeForCompletion?.nutrition) {
-        // Use the planned date but current time, or just current time?
-        // Let's use current time as "consumed at"
         const consumedAt = new Date();
-        
         const success = await saveNutritionToHealth(
           recipeForCompletion.nutrition,
           consumedAt,
           completingMeal.meal_type,
           completingMeal.recipe_name
         );
-
         if (success) {
           syncMessage = ' and synced to Health app';
         } else {
           syncMessage = ' (Health sync failed)';
         }
       }
-
       setCompletingMeal(null);
       setRecipeForCompletion(null);
       Alert.alert('Success', `Meal marked as complete${syncMessage}!`);
@@ -136,13 +128,13 @@ export default function CalendarScreen() {
     }
   };
 
-  const handleCancelCompletion = () => {
+  const handleCancelCompletion = (): void => {
     setCompletingMeal(null);
     setRecipeForCompletion(null);
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <MealCalendar
         mealPlans={mealPlans}
         selectedDate={selectedDate}
@@ -150,7 +142,6 @@ export default function CalendarScreen() {
         onAddMeal={handleAddMeal}
         onMealPress={handleMealPress}
       />
-
       <MealCompletionModal
         visible={completingMeal !== null}
         mealPlan={completingMeal}
@@ -166,6 +157,6 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.cream,
   },
 });

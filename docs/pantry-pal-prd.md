@@ -1,8 +1,8 @@
-# Pantry Pal - Product Requirements Document
+# DinnerPlans - Product Requirements Document
 
 ## Executive Summary
 
-**Pantry Pal** is a mobile app that helps users manage their food inventory through barcode scanning, track expiration dates, and discover recipes based on available ingredients. The goal is to reduce food waste and save money by making better use of what's already in your pantry.
+**DinnerPlans** is a mobile app that helps users manage their food inventory through barcode scanning, track expiration dates, and discover recipes based on available ingredients. The goal is to reduce food waste and save money by making better use of what's already in your pantry.
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Attribute | Details |
 |-----------|---------|
-| **Project Name** | Pantry Pal |
+| **Project Name** | DinnerPlans |
 | **Developer** | Shane (Christmas Break 2024 Project) |
 | **Tech Stack** | React Native + Expo, Supabase, TypeScript |
 | **Target Platforms** | iOS, Android |
@@ -229,7 +229,7 @@ const getRecipeById = async (id: string) => {
 ## Project Structure
 
 ```
-pantry-pal/
+dinner-plans/
 ├── app/                          # Expo Router screens
 │   ├── (auth)/
 │   │   ├── login.tsx

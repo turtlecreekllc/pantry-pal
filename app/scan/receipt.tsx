@@ -223,9 +223,13 @@ export default function ReceiptScannerScreen() {
 
   const handleAccept = async (item: ScannedItem) => {
     try {
+      // Round quantity to integer since database expects integer type
+      const quantity = typeof item.quantity === 'number' && !isNaN(item.quantity)
+        ? Math.round(item.quantity)
+        : 1;
       await addItem({
         name: item.name,
-        quantity: item.quantity,
+        quantity,
         unit: item.unit,
         brand: item.brand || null,
         category: item.category || null,
@@ -235,7 +239,7 @@ export default function ReceiptScannerScreen() {
         image_url: null,
         nutrition_json: null,
         location_notes: null,
-        original_quantity: item.quantity,
+        original_quantity: quantity,
         usage_history: null,
         fill_level: null,
       });

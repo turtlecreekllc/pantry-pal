@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,8 @@ export default function ImportReviewScreen() {
     platform: string;
     warnings: string;
   }>();
-
+  // Ref to prevent multiple navigations
+  const hasNavigatedRef = useRef(false);
   const { saveImportedRecipe, convertToExtendedRecipe } = useImportedRecipes();
   const { saveRecipe } = useSavedRecipes();
   const [saving, setSaving] = useState(false);
@@ -131,12 +132,16 @@ export default function ImportReviewScreen() {
           {
             text: 'View Recipe',
             onPress: () => {
+              if (hasNavigatedRef.current) return;
+              hasNavigatedRef.current = true;
               router.replace(`/recipe/${extendedRecipe.id}`);
             },
           },
           {
             text: 'Import Another',
             onPress: () => {
+              if (hasNavigatedRef.current) return;
+              hasNavigatedRef.current = true;
               router.replace('/import');
             },
           },
@@ -144,7 +149,18 @@ export default function ImportReviewScreen() {
       );
     } catch (error) {
       console.error('Save error:', error);
-      Alert.alert('Error', 'Failed to save recipe. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Recipe save failed with:', {
+        title: title.trim(),
+        hasIngredients: ingredients.length > 0,
+        hasInstructions: instructions.length > 0,
+        hasImage: !!initialRecipe.image_url,
+        error: errorMessage,
+      });
+      Alert.alert(
+        'Save Failed',
+        `Unable to save recipe: ${errorMessage}\n\nPlease try again or contact support if the issue persists.`
+      );
     } finally {
       setSaving(false);
     }

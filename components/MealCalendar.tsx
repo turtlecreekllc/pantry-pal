@@ -1,7 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+/**
+ * MealCalendar - Simplified Week View
+ * Shows current week with meal options for the selected day below.
+ */
+
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MealPlan, MEAL_TYPES, MealType } from '../lib/types';
+import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
 
 interface MealCalendarProps {
   mealPlans: MealPlan[];
@@ -11,7 +17,7 @@ interface MealCalendarProps {
   onMealPress: (meal: MealPlan) => void;
 }
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const MEAL_TYPE_ICONS: Record<MealType, string> = {
   breakfast: 'sunny-outline',
@@ -20,144 +26,109 @@ const MEAL_TYPE_ICONS: Record<MealType, string> = {
   snack: 'cafe-outline',
 };
 
+/**
+ * Gets the week days (Sun-Sat) containing the given date
+ */
+function getWeekDays(date: Date): Date[] {
+  const dayOfWeek = date.getDay();
+  const startOfWeek = new Date(date);
+  startOfWeek.setDate(date.getDate() - dayOfWeek);
+  startOfWeek.setHours(0, 0, 0, 0);
+  const days: Date[] = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(startOfWeek);
+    day.setDate(startOfWeek.getDate() + i);
+    days.push(day);
+  }
+  return days;
+}
+
 export function MealCalendar({
   mealPlans,
   selectedDate,
   onSelectDate,
   onAddMeal,
   onMealPress,
-}: MealCalendarProps) {
-  const [viewMonth, setViewMonth] = useState(new Date(selectedDate));
-
-  const calendarDays = useMemo(() => {
-    const year = viewMonth.getFullYear();
-    const month = viewMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startPadding = firstDay.getDay();
-
-    const days: (Date | null)[] = [];
-
-    // Padding for days before month starts
-    for (let i = 0; i < startPadding; i++) {
-      days.push(null);
-    }
-
-    // All days of the month
-    for (let d = 1; d <= lastDay.getDate(); d++) {
-      days.push(new Date(year, month, d));
-    }
-
-    return days;
-  }, [viewMonth]);
+}: MealCalendarProps): React.ReactElement {
+  const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
 
   const getMealsForDay = (date: Date): MealPlan[] => {
     const dateStr = date.toISOString().split('T')[0];
     return mealPlans.filter((m) => m.date === dateStr);
   };
 
-  const goToPrevMonth = () => {
-    setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1));
-  };
-
-  const goToNextMonth = () => {
-    setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1));
-  };
-
-  const goToToday = () => {
-    const today = new Date();
-    setViewMonth(today);
-    onSelectDate(today);
-  };
-
   const selectedDateMeals = getMealsForDay(selectedDate);
   const selectedDateStr = selectedDate.toISOString().split('T')[0];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   return (
     <View style={styles.container}>
-      {/* Month Navigation */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={goToPrevMonth} style={styles.navButton}>
-          <Ionicons name="chevron-back" size={24} color="#4CAF50" />
-        </TouchableOpacity>
-        <Text style={styles.monthTitle}>
-          {viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-        </Text>
-        <TouchableOpacity onPress={goToNextMonth} style={styles.navButton}>
-          <Ionicons name="chevron-forward" size={24} color="#4CAF50" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Today Button */}
-      <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-        <Ionicons name="today-outline" size={16} color="#4CAF50" />
-        <Text style={styles.todayButtonText}>Today</Text>
-      </TouchableOpacity>
-
-      {/* Weekday Headers */}
-      <View style={styles.weekHeader}>
-        {WEEKDAYS.map((day) => (
-          <Text key={day} style={styles.weekDay}>
-            {day}
-          </Text>
-        ))}
-      </View>
-
-      {/* Calendar Grid */}
-      <View style={styles.grid}>
-        {calendarDays.map((date, index) => {
-          if (!date) {
-            return <View key={`empty-${index}`} style={styles.dayCellWrapper} />;
-          }
-
-          const meals = getMealsForDay(date);
-          const isSelected = date.toDateString() === selectedDate.toDateString();
-          const isToday = date.toDateString() === new Date().toDateString();
+      {/* Week Strip */}
+      <View style={styles.weekStrip}>
+        {weekDays.map((day) => {
+          const meals = getMealsForDay(day);
+          const isSelected = day.toDateString() === selectedDate.toDateString();
+          const isToday = day.toDateString() === today.toDateString();
           const hasMeals = meals.length > 0;
-          const hasCompleted = meals.some((m) => m.is_completed);
           const hasPlanned = meals.some((m) => !m.is_completed);
+          const hasCompleted = meals.some((m) => m.is_completed);
 
           return (
-            <View key={date.toISOString()} style={styles.dayCellWrapper}>
-              <TouchableOpacity
+            <TouchableOpacity
+              key={day.toISOString()}
+              style={[
+                styles.dayCell,
+                isSelected && styles.dayCellSelected,
+                isToday && !isSelected && styles.dayCellToday,
+              ]}
+              onPress={() => onSelectDate(day)}
+              accessibilityLabel={`${WEEKDAYS_SHORT[day.getDay()]} ${day.getDate()}${isToday ? ', today' : ''}${hasMeals ? ', has meals' : ''}`}
+              accessibilityRole="button"
+            >
+              <Text
                 style={[
-                  styles.dayCell,
-                  isSelected && styles.selectedDay,
-                  isToday && !isSelected && styles.today,
+                  styles.dayName,
+                  isSelected && styles.dayNameSelected,
+                  isToday && !isSelected && styles.dayNameToday,
                 ]}
-                onPress={() => onSelectDate(date)}
               >
-                <Text
-                  style={[
-                    styles.dayNumber,
-                    isSelected && styles.selectedDayText,
-                    isToday && !isSelected && styles.todayText,
-                  ]}
-                >
-                  {date.getDate()}
-                </Text>
-                {hasMeals && (
-                  <View style={styles.mealIndicators}>
-                    {hasPlanned && <View style={styles.mealDotPlanned} />}
-                    {hasCompleted && <View style={styles.mealDotCompleted} />}
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
+                {WEEKDAYS_SHORT[day.getDay()]}
+              </Text>
+              <Text
+                style={[
+                  styles.dayNumber,
+                  isSelected && styles.dayNumberSelected,
+                  isToday && !isSelected && styles.dayNumberToday,
+                ]}
+              >
+                {day.getDate()}
+              </Text>
+              {hasMeals && (
+                <View style={styles.mealIndicators}>
+                  {hasPlanned && <View style={styles.mealDotPlanned} />}
+                  {hasCompleted && <View style={styles.mealDotCompleted} />}
+                </View>
+              )}
+              {!hasMeals && <View style={styles.mealIndicatorPlaceholder} />}
+            </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* Selected Day Detail */}
-      <ScrollView style={styles.dayDetail} contentContainerStyle={styles.dayDetailContent}>
-        <Text style={styles.dayDetailTitle}>
+      {/* Selected Day Title */}
+      <View style={styles.selectedDayHeader}>
+        <Text style={styles.selectedDayTitle}>
           {selectedDate.toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',
             day: 'numeric',
           })}
         </Text>
+      </View>
 
+      {/* Meal Slots for Selected Day */}
+      <View style={styles.mealSlotsContainer}>
         {MEAL_TYPES.map((mealType) => {
           const meal = selectedDateMeals.find((m) => m.meal_type === mealType);
           const iconName = MEAL_TYPE_ICONS[mealType];
@@ -165,7 +136,7 @@ export function MealCalendar({
           return (
             <View key={mealType} style={styles.mealSlot}>
               <View style={styles.mealTypeHeader}>
-                <Ionicons name={iconName as any} size={18} color="#666" />
+                <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={18} color={colors.brownMuted} />
                 <Text style={styles.mealTypeLabel}>
                   {mealType.charAt(0).toUpperCase() + mealType.slice(1)}
                 </Text>
@@ -174,6 +145,8 @@ export function MealCalendar({
                 <TouchableOpacity
                   style={[styles.mealCard, meal.is_completed && styles.mealCardCompleted]}
                   onPress={() => onMealPress(meal)}
+                  accessibilityLabel={`${meal.recipe_name}${meal.is_completed ? ', completed' : ''}`}
+                  accessibilityRole="button"
                 >
                   <View style={styles.mealCardContent}>
                     <Text
@@ -190,204 +163,193 @@ export function MealCalendar({
                     )}
                   </View>
                   {meal.is_completed ? (
-                    <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                    <Ionicons name="checkmark-circle" size={20} color={colors.success} />
                   ) : (
-                    <Ionicons name="chevron-forward" size={20} color="#999" />
+                    <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
                   )}
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   style={styles.addMealButton}
                   onPress={() => onAddMeal(selectedDateStr, mealType)}
+                  accessibilityLabel={`Add ${mealType}`}
+                  accessibilityRole="button"
                 >
-                  <Ionicons name="add" size={20} color="#4CAF50" />
+                  <Ionicons name="add" size={20} color={colors.primary} />
                   <Text style={styles.addMealText}>Add {mealType}</Text>
                 </TouchableOpacity>
               )}
             </View>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    marginHorizontal: spacing.space4,
+    marginTop: spacing.space3,
+    borderWidth: 2,
+    borderColor: colors.brown,
+    ...shadows.sm,
   },
-  header: {
+  weekStrip: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-  },
-  navButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  todayButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#e8f5e9',
-    borderRadius: 16,
-    marginBottom: 8,
-  },
-  todayButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4CAF50',
-  },
-  weekHeader: {
-    flexDirection: 'row',
-    paddingHorizontal: 8,
-  },
-  weekDay: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#666',
-    paddingVertical: 8,
-    fontWeight: '500',
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 8,
-  },
-  dayCellWrapper: {
-    width: '14.28%',
-    aspectRatio: 1,
-    padding: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space2,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.brown,
+    backgroundColor: colors.cream,
+    borderTopLeftRadius: borderRadius.lg - 2,
+    borderTopRightRadius: borderRadius.lg - 2,
   },
   dayCell: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
+    paddingVertical: spacing.space2,
+    borderRadius: borderRadius.md,
+    marginHorizontal: spacing.space1,
   },
-  selectedDay: {
-    backgroundColor: '#4CAF50',
-  },
-  today: {
+  dayCellSelected: {
+    backgroundColor: colors.primary,
     borderWidth: 2,
-    borderColor: '#4CAF50',
+    borderColor: colors.brown,
+  },
+  dayCellToday: {
+    backgroundColor: colors.peachLight,
+    borderWidth: 2,
+    borderColor: colors.brown,
+  },
+  dayName: {
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textXs,
+    fontWeight: typography.fontMedium,
+    color: colors.brownMuted,
+    marginBottom: spacing.space1,
+  },
+  dayNameSelected: {
+    color: colors.brown,
+    fontWeight: typography.fontSemibold,
+  },
+  dayNameToday: {
+    color: colors.brown,
   },
   dayNumber: {
-    fontSize: 14,
-    color: '#333',
+    fontFamily: 'Quicksand-Bold',
+    fontSize: typography.textBase,
+    fontWeight: typography.fontBold,
+    color: colors.brown,
   },
-  selectedDayText: {
-    color: '#fff',
-    fontWeight: '600',
+  dayNumberSelected: {
+    color: colors.brown,
   },
-  todayText: {
-    color: '#4CAF50',
-    fontWeight: '600',
+  dayNumberToday: {
+    color: colors.brown,
   },
   mealIndicators: {
     flexDirection: 'row',
-    gap: 2,
-    marginTop: 2,
+    gap: spacing.space1,
+    marginTop: spacing.space1,
+    minHeight: 8,
+  },
+  mealIndicatorPlaceholder: {
+    minHeight: 8,
+    marginTop: spacing.space1,
   },
   mealDotPlanned: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFC107',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.warning,
   },
   mealDotCompleted: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4CAF50',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
   },
-  dayDetail: {
-    flex: 1,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+  selectedDayHeader: {
+    paddingHorizontal: spacing.space4,
+    paddingTop: spacing.space4,
+    paddingBottom: spacing.space2,
   },
-  dayDetailContent: {
-    padding: 16,
-    paddingBottom: 40,
+  selectedDayTitle: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontBold,
+    color: colors.brown,
   },
-  dayDetailTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
+  mealSlotsContainer: {
+    paddingHorizontal: spacing.space4,
+    paddingBottom: spacing.space4,
   },
   mealSlot: {
-    marginBottom: 16,
+    marginBottom: spacing.space4,
   },
   mealTypeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
+    gap: spacing.space2,
+    marginBottom: spacing.space2,
   },
   mealTypeLabel: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '500',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
+    color: colors.brownMuted,
   },
   mealCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    padding: spacing.space3,
+    backgroundColor: colors.cream,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: colors.brown,
   },
   mealCardCompleted: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: colors.successBg,
+    borderColor: colors.success,
   },
   mealCardContent: {
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing.space2,
   },
   mealName: {
-    fontSize: 15,
-    color: '#333',
-    fontWeight: '500',
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textBase,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
   },
   mealNameCompleted: {
-    color: '#4CAF50',
+    color: colors.success,
   },
   servingsText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textXs,
+    color: colors.brownMuted,
+    marginTop: spacing.space1,
   },
   addMealButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#4CAF50',
+    gap: spacing.space2,
+    padding: spacing.space3,
+    borderWidth: 2,
+    borderColor: colors.primary,
     borderStyle: 'dashed',
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.white,
   },
   addMealText: {
-    color: '#4CAF50',
-    fontSize: 14,
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
+    color: colors.primary,
   },
 });

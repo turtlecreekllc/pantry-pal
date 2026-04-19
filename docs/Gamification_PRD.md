@@ -1,6 +1,6 @@
 # PRD-004: Food Waste Gamification Strategy
 
-**Product:** Pantry Pal  
+**Product:** DinnerPlans  
 **Feature:** Gamification & Impact Tracking System  
 **Priority:** P1 - Key Differentiator  
 **Target Release:** V1.0 (Core) → V2.0 (Full)  
@@ -133,7 +133,7 @@ Member Since:    Oct 2024
 
 **Share Feature:**
 - Generates shareable image card
-- Pre-written copy: "I've saved 62 lbs of food from going to waste with Pantry Pal! 🌱"
+- Pre-written copy: "I've saved 62 lbs of food from going to waste with DinnerPlans! 🌱"
 - Social share to Instagram Stories, Twitter, Facebook
 
 ---
@@ -291,7 +291,7 @@ RESCUE HEROES
 EXPLORATION
 ━━━━━━━━━━━━━━━
 🍳 Recipe Explorer   - Try 10 suggested recipes
-💬 Chat Champion     - Have 20 conversations with Pantry Pal
+💬 Chat Champion     - Have 20 conversations with DinnerPlans
 📋 List Master       - Complete shopping list 5 times
 ```
 
@@ -366,7 +366,7 @@ EXPLORATION
 #### 3.4.2 Community Impact
 
 - Aggregate community stats
-- "Pantry Pal users have saved 1M lbs of food!"
+- "DinnerPlans users have saved 1M lbs of food!"
 - Local community goals (opt-in)
 - "Birmingham households saved X this month"
 

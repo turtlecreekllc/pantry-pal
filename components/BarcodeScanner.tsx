@@ -54,7 +54,7 @@ export function BarcodeScanner({ onBarcodeScanned, onCancel }: BarcodeScannerPro
           <Ionicons name="camera-outline" size={64} color="#999" />
           <Text style={styles.permissionTitle}>Camera Access Required</Text>
           <Text style={styles.permissionText}>
-            Pantry Pal needs camera access to scan product barcodes.
+            DinnerPlans needs camera access to scan product barcodes.
           </Text>
           <Button title="Grant Permission" onPress={requestPermission} style={styles.permissionButton} />
           <Button title="Cancel" onPress={onCancel} variant="secondary" style={styles.cancelButton} />

@@ -42,10 +42,38 @@ interface SpoonacularSearchResult {
   missedIngredientCount?: number;
 }
 
+// Track if we've already warned about quota to avoid log spam
+let quotaWarningShown = false;
+
+/**
+ * Handle Spoonacular API response errors
+ * Returns true if the error is recoverable (should return empty result)
+ */
+function handleApiError(status: number, context: string): boolean {
+  if (status === 402) {
+    // Payment Required - API quota exceeded (expected for free tier)
+    if (!quotaWarningShown) {
+      console.warn(`[Spoonacular] API quota exceeded. Using fallback recipes.`);
+      quotaWarningShown = true;
+    }
+    return true;
+  }
+  if (status === 401) {
+    console.warn(`[Spoonacular] Invalid API key`);
+    return true;
+  }
+  if (status === 429) {
+    console.warn(`[Spoonacular] Rate limited. Try again later.`);
+    return true;
+  }
+  console.warn(`[Spoonacular] ${context}: HTTP ${status}`);
+  return true;
+}
+
 // Search recipes by ingredients
 export async function searchByIngredients(ingredients: string[]): Promise<RecipePreview[]> {
   if (!API_KEY) {
-    console.error('Spoonacular API key not configured');
+    console.log('[Spoonacular] API key not configured, skipping');
     return [];
   }
 
@@ -55,7 +83,7 @@ export async function searchByIngredients(ingredients: string[]): Promise<Recipe
     );
 
     if (!response.ok) {
-      console.error('Spoonacular API error:', response.status);
+      handleApiError(response.status, 'searchByIngredients');
       return [];
     }
 
@@ -67,7 +95,7 @@ export async function searchByIngredients(ingredients: string[]): Promise<Recipe
       thumbnail: r.image,
     }));
   } catch (error) {
-    console.error('Spoonacular search error:', error);
+    console.warn('[Spoonacular] Network error in searchByIngredients:', error);
     return [];
   }
 }
@@ -81,7 +109,7 @@ export async function complexSearch(params: {
   number?: number;
 }): Promise<RecipePreview[]> {
   if (!API_KEY) {
-    console.error('Spoonacular API key not configured');
+    console.log('[Spoonacular] API key not configured, skipping');
     return [];
   }
 
@@ -99,7 +127,7 @@ export async function complexSearch(params: {
     const response = await fetch(`${BASE_URL}/recipes/complexSearch?${searchParams}`);
 
     if (!response.ok) {
-      console.error('Spoonacular API error:', response.status);
+      handleApiError(response.status, 'complexSearch');
       return [];
     }
 
@@ -111,7 +139,7 @@ export async function complexSearch(params: {
       thumbnail: r.image,
     }));
   } catch (error) {
-    console.error('Spoonacular complex search error:', error);
+    console.warn('[Spoonacular] Network error in complexSearch:', error);
     return [];
   }
 }
@@ -119,7 +147,7 @@ export async function complexSearch(params: {
 // Get full recipe details by ID
 export async function getRecipeById(id: number): Promise<ExtendedRecipe | null> {
   if (!API_KEY) {
-    console.error('Spoonacular API key not configured');
+    console.log('[Spoonacular] API key not configured, skipping');
     return null;
   }
 
@@ -129,7 +157,7 @@ export async function getRecipeById(id: number): Promise<ExtendedRecipe | null> 
     );
 
     if (!response.ok) {
-      console.error('Spoonacular API error:', response.status);
+      handleApiError(response.status, `getRecipeById(${id})`);
       return null;
     }
 
@@ -178,7 +206,7 @@ export async function getRecipeById(id: number): Promise<ExtendedRecipe | null> 
       nutrition,
     };
   } catch (error) {
-    console.error('Spoonacular getRecipe error:', error);
+    console.warn('[Spoonacular] Network error in getRecipeById:', error);
     return null;
   }
 }

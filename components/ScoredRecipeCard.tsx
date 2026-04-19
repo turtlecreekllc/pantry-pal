@@ -17,10 +17,17 @@ function getScoreColor(score: number): string {
 
 export function ScoredRecipeCard({ recipe, onPress }: ScoredRecipeCardProps) {
   const scoreColor = getScoreColor(recipe.matchScore);
+  const hasValidImage = Boolean(recipe.thumbnail);
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
-      <Image source={{ uri: recipe.thumbnail }} style={styles.image} />
+      {hasValidImage ? (
+        <Image source={{ uri: recipe.thumbnail }} style={styles.image} />
+      ) : (
+        <View style={styles.imagePlaceholder}>
+          <Ionicons name="restaurant-outline" size={40} color="#ccc" />
+        </View>
+      )}
 
       {/* Score Badge */}
       <View style={[styles.scoreBadge, { backgroundColor: scoreColor }]}>
@@ -78,6 +85,13 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 120,
     backgroundColor: '#f5f5f5',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scoreBadge: {
     position: 'absolute',

@@ -1,13 +1,5 @@
 import { PantryItem, ImportedRecipe, RecipeIngredient, NutritionInfo } from './types';
-
-// Get API key from environment
-const getOpenAIKey = (): string => {
-  const key = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!key) {
-    throw new Error('EXPO_PUBLIC_OPENAI_API_KEY is not configured');
-  }
-  return key;
-};
+import { callClaude } from './claudeService';
 
 export interface GenerateRecipeOptions {
   cuisine?: string;
@@ -24,17 +16,6 @@ interface GeneratedRecipeResult {
   error: string | null;
   usedIngredients: string[];
   additionalIngredientsNeeded: string[];
-}
-
-interface OpenAIResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-  error?: {
-    message: string;
-  };
 }
 
 const RECIPE_GENERATION_PROMPT = `You are a creative chef AI. Generate a delicious, practical recipe using the provided pantry ingredients.
@@ -94,111 +75,6 @@ RESPOND WITH VALID JSON ONLY:
   "additionalIngredients": ["any extra ingredients needed"]
 }`;
 
-/**
- * Timeout wrapper for promises
- */
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(errorMessage));
-    }, timeoutMs);
-
-    promise
-      .then((result) => {
-        clearTimeout(timer);
-        resolve(result);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
-}
-
-/**
- * Retry wrapper for network requests with exponential backoff
- */
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 2,
-  initialDelayMs: number = 1000
-): Promise<T> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
-
-      // Don't retry on API key errors or timeouts
-      const errorMessage = lastError.message.toLowerCase();
-      if (
-        errorMessage.includes('api key') ||
-        errorMessage.includes('401') ||
-        errorMessage.includes('400') ||
-        errorMessage.includes('configured') ||
-        errorMessage.includes('timeout')
-      ) {
-        throw lastError;
-      }
-
-      if (attempt < maxRetries) {
-        const delay = initialDelayMs * Math.pow(2, attempt - 1);
-        console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  throw lastError || new Error('Request failed after retries');
-}
-
-/**
- * Call OpenAI API for recipe generation
- */
-async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
-  const apiKey = getOpenAIKey();
-
-  const fetchPromise = fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 2000,
-      temperature: 0.7,
-    }),
-  });
-
-  // 30 second timeout for recipe generation
-  const response = await withTimeout(
-    fetchPromise,
-    30000,
-    'Recipe generation timed out. Please try again.'
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      `OpenAI API error: ${response.status} - ${(errorData as OpenAIResponse).error?.message || response.statusText}`
-    );
-  }
-
-  const data: OpenAIResponse = await response.json();
-
-  if (!data.choices?.[0]?.message?.content) {
-    throw new Error('Invalid response from OpenAI API');
-  }
-
-  return data.choices[0].message.content;
-}
 
 /**
  * Parse JSON response from AI
@@ -303,7 +179,7 @@ ${preferences.length > 0 ? 'PREFERENCES:\n' + preferences.join('\n') : ''}
 Create a delicious recipe that makes the best use of these ingredients. Minimize additional ingredients needed.
 `;
 
-    const aiResponse = await withRetry(() => callOpenAI(RECIPE_GENERATION_PROMPT, userPrompt));
+    const aiResponse = await callClaude(RECIPE_GENERATION_PROMPT, [{ role: 'user', content: userPrompt }], { maxTokens: 2000, temperature: 0.7 });
     const parsed = parseJSONResponse<{
       title: string;
       description: string;
@@ -394,7 +270,7 @@ ${previousRecipeName ? `These are leftovers from: ${previousRecipeName}` : ''}
 Transform these leftovers into a completely new and different dish. Be creative!
 `;
 
-    const aiResponse = await withRetry(() => callOpenAI(LEFTOVER_TRANSFORMATION_PROMPT, userPrompt));
+    const aiResponse = await callClaude(LEFTOVER_TRANSFORMATION_PROMPT, [{ role: 'user', content: userPrompt }], { maxTokens: 2000, temperature: 0.7 });
     const parsed = parseJSONResponse<{
       title: string;
       description: string;

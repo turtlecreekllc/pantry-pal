@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { QuantitySelector } from '../../components/ui/QuantitySelector';
 import { DatePicker } from '../../components/ui/DatePicker';
+import { ImageSearchButton } from '../../components/ImageSearchModal';
 import { Location, Category, CATEGORIES, UNITS, Unit } from '../../lib/types';
 
 export default function ManualEntryScreen() {
@@ -37,6 +39,7 @@ export default function ManualEntryScreen() {
   const [location, setLocation] = useState<Location>('pantry');
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
   const [barcode, setBarcode] = useState(params.barcode || '');
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const handleAddItem = async () => {
     if (!name.trim()) {
@@ -55,7 +58,7 @@ export default function ManualEntryScreen() {
         quantity,
         unit,
         expiration_date: expirationDate?.toISOString().split('T')[0] || null,
-        image_url: null,
+        image_url: imageUrl,
         nutrition_json: null,
         location,
         location_notes: null,
@@ -104,6 +107,28 @@ export default function ManualEntryScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Product Image */}
+          <View style={styles.imageSection}>
+            {imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={styles.productImage} />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="image-outline" size={40} color="#ccc" />
+                <Text style={styles.imagePlaceholderText}>No Image</Text>
+              </View>
+            )}
+            <View style={styles.imageSearchContainer}>
+              <ImageSearchButton
+                productName={name}
+                brand={brand || undefined}
+                size={quantity && unit ? `${quantity} ${unit}` : undefined}
+                onImageSelected={(url) => setImageUrl(url)}
+                hasImage={!!imageUrl}
+                compact
+              />
+            </View>
+          </View>
+
           <Input
             label="Name *"
             value={name}
@@ -221,6 +246,32 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+  },
+  imageSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  productImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+  },
+  imagePlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePlaceholderText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  imageSearchContainer: {
+    marginTop: 8,
   },
   label: {
     fontSize: 14,

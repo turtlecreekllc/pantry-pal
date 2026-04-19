@@ -19,8 +19,11 @@ import { usePantry } from '../../hooks/usePantry';
 import { useHouseholdContext } from '../../context/HouseholdContext';
 import { sendChatMessage, getSuggestedPrompts } from '../../lib/chatService';
 import { ChatMessage } from '../../lib/types';
+import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
 
-export default function ChatScreen() {
+const MascotImage = require('../../assets/icon.png');
+
+export default function ChatScreen(): React.ReactElement {
   const insets = useSafeAreaInsets();
   const { activeHousehold } = useHouseholdContext();
   const { pantryItems } = usePantry({ householdId: activeHousehold?.id });
@@ -32,32 +35,28 @@ export default function ChatScreen() {
   const suggestedPrompts = getSuggestedPrompts(pantryItems);
 
   useEffect(() => {
-    // Add welcome message on first load
     if (messages.length === 0) {
       const welcomeMessage: ChatMessage = {
         id: 'welcome',
         role: 'assistant',
-        content: `Hi! I'm your Pantry Pal assistant. I can help you discover recipes, track expiring items, and manage your pantry. What would you like to know?`,
+        content: `Hey there! I'm your AI cooking companion! I can help you discover recipes, suggest dinners based on what you have, track expiring items, and plan your week. What can I help with today?`,
         timestamp: new Date().toISOString(),
       };
       setMessages([welcomeMessage]);
     }
   }, []);
 
-  const handleSend = async () => {
+  const handleSend = async (): Promise<void> => {
     if (!inputText.trim() || isLoading) return;
-
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: inputText.trim(),
       timestamp: new Date().toISOString(),
     };
-
     setMessages((prev) => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
-
     try {
       const response = await sendChatMessage(inputText.trim(), pantryItems, messages);
       setMessages((prev) => [...prev, response]);
@@ -66,7 +65,7 @@ export default function ChatScreen() {
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please make sure your OpenAI API key is configured in the .env file.',
+        content: 'Sorry, I ran into a problem. Please check your connection and try again.',
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -75,24 +74,21 @@ export default function ChatScreen() {
     }
   };
 
-  const handlePromptPress = (prompt: string) => {
+  const handlePromptPress = (prompt: string): void => {
     setInputText(prompt);
     handleSend();
   };
 
-  const handleRecipePress = (recipeId: string) => {
+  const handleRecipePress = (recipeId: string): void => {
     router.push(`/recipe/${recipeId}`);
   };
 
-  const renderMessage = ({ item }: { item: ChatMessage }) => {
+  const renderMessage = ({ item }: { item: ChatMessage }): React.ReactElement => {
     const isUser = item.role === 'user';
-
     return (
       <View style={[styles.messageContainer, isUser ? styles.userMessageContainer : styles.aiMessageContainer]}>
         <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
           <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.content}</Text>
-
-          {/* Render recipe cards if present */}
           {item.recipes && item.recipes.length > 0 && (
             <View style={styles.recipesContainer}>
               <Text style={styles.recipesTitle}>Recipes I found:</Text>
@@ -102,34 +98,35 @@ export default function ChatScreen() {
                   style={styles.recipeCard}
                   onPress={() => handleRecipePress(recipe.id)}
                 >
-                  <Image source={{ uri: recipe.thumbnail }} style={styles.recipeThumbnail} />
+                  {recipe.thumbnail ? (
+                    <Image source={{ uri: recipe.thumbnail }} style={styles.recipeThumbnail} />
+                  ) : (
+                    <View style={[styles.recipeThumbnail, styles.recipeThumbnailPlaceholder]}>
+                      <Ionicons name="restaurant-outline" size={24} color={colors.brownMuted} />
+                    </View>
+                  )}
                   <View style={styles.recipeInfo}>
                     <Text style={styles.recipeName}>{recipe.name}</Text>
-                    <Ionicons name="chevron-forward" size={20} color="#666" />
+                    <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
                   </View>
                 </TouchableOpacity>
               ))}
             </View>
           )}
-
-          {/* Render pantry items if present */}
           {item.items && item.items.length > 0 && (
             <View style={styles.itemsContainer}>
               {item.items.map((pantryItem) => {
                 const isExpiringSoon = pantryItem.expiration_date
                   ? new Date(pantryItem.expiration_date).getTime() - new Date().getTime() < 7 * 24 * 60 * 60 * 1000
                   : false;
-
                 return (
                   <View key={pantryItem.id} style={styles.itemChip}>
                     <View style={styles.itemChipContent}>
                       <Text style={styles.itemName}>{pantryItem.name}</Text>
-                      <Text style={styles.itemQuantity}>
-                        {pantryItem.quantity} {pantryItem.unit}
-                      </Text>
+                      <Text style={styles.itemQuantity}>{pantryItem.quantity} {pantryItem.unit}</Text>
                     </View>
                     {isExpiringSoon && (
-                      <Ionicons name="warning" size={16} color="#FF9800" style={styles.warningIcon} />
+                      <Ionicons name="warning" size={16} color={colors.warning} style={styles.warningIcon} />
                     )}
                   </View>
                 );
@@ -142,15 +139,15 @@ export default function ChatScreen() {
     );
   };
 
-  const renderEmptyState = () => {
+  const renderEmptyState = (): React.ReactElement | null => {
     if (messages.length > 0) return null;
-
     return (
       <View style={styles.emptyState}>
-        <Ionicons name="chatbubbles-outline" size={64} color="#CCC" />
-        <Text style={styles.emptyTitle}>Chat with Your Pantry</Text>
-        <Text style={styles.emptySubtitle}>Ask me anything about your pantry, recipes, or meal planning!</Text>
-
+        <View style={styles.pepperBadge}>
+          <Image source={MascotImage} style={styles.mascotImage} resizeMode="contain" />
+        </View>
+        <Text style={styles.emptyTitle}>Chat with Chef</Text>
+        <Text style={styles.emptySubtitle}>Your AI cooking companion! Ask me about recipes, what's expiring, or help planning meals.</Text>
         <View style={styles.suggestedPromptsContainer}>
           <Text style={styles.suggestedPromptsTitle}>Try asking:</Text>
           {suggestedPrompts.map((prompt, index) => (
@@ -160,7 +157,7 @@ export default function ChatScreen() {
               onPress={() => handlePromptPress(prompt)}
             >
               <Text style={styles.promptText}>{prompt}</Text>
-              <Ionicons name="arrow-forward" size={16} color="#4CAF50" />
+              <Ionicons name="arrow-forward" size={16} color={colors.coral} />
             </TouchableOpacity>
           ))}
         </View>
@@ -179,10 +176,7 @@ export default function ChatScreen() {
         data={messages}
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.messagesList,
-          messages.length === 0 && styles.messagesListEmpty,
-        ]}
+        contentContainerStyle={[styles.messagesList, messages.length === 0 && styles.messagesListEmpty]}
         ListEmptyComponent={renderEmptyState}
         onContentSizeChange={() => {
           if (messages.length > 0) {
@@ -195,42 +189,34 @@ export default function ChatScreen() {
           }
         }}
       />
-
-      {/* Typing indicator */}
       {isLoading && (
         <View style={styles.typingIndicator}>
           <View style={styles.typingBubble}>
-            <ActivityIndicator size="small" color="#4CAF50" />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.typingText}>Thinking...</Text>
           </View>
         </View>
       )}
-
-      {/* Quick action prompts after AI response */}
       {messages.length > 0 && !isLoading && messages[messages.length - 1]?.role === 'assistant' && (
         <View style={styles.quickActions}>
           {suggestedPrompts.slice(0, 3).map((prompt, index) => (
             <Pressable
               key={index}
               style={styles.quickActionChip}
-              onPress={() => {
-                setInputText(prompt);
-              }}
+              onPress={() => setInputText(prompt)}
             >
               <Text style={styles.quickActionText}>{prompt}</Text>
             </Pressable>
           ))}
         </View>
       )}
-
-      {/* Input area */}
-      <View style={[styles.inputContainer, { paddingBottom: insets.bottom || 8 }]}>
+      <View style={[styles.inputContainer, { paddingBottom: insets.bottom || spacing.space2 }]}>
         <TextInput
           style={styles.input}
           value={inputText}
           onChangeText={setInputText}
           placeholder="Ask about your pantry..."
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.brownMuted}
           multiline
           maxLength={500}
           editable={!isLoading}
@@ -239,8 +225,10 @@ export default function ChatScreen() {
           style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
           onPress={handleSend}
           disabled={!inputText.trim() || isLoading}
+          accessibilityLabel="Send message"
+          accessibilityRole="button"
         >
-          <Ionicons name="send" size={24} color="#fff" />
+          <Ionicons name="send" size={24} color={colors.brown} />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -250,10 +238,10 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.cream,
   },
   messagesList: {
-    padding: 16,
+    padding: spacing.space4,
   },
   messagesListEmpty: {
     flex: 1,
@@ -262,50 +250,70 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: spacing.space10,
+  },
+  pepperBadge: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: colors.brown,
+    overflow: 'hidden',
+  },
+  mascotImage: {
+    width: 90,
+    height: 90,
   },
   emptyTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 16,
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.text2xl,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
+    marginTop: spacing.space4,
   },
   emptySubtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brownMuted,
     textAlign: 'center',
-    marginTop: 8,
-    paddingHorizontal: 32,
+    marginTop: spacing.space2,
+    paddingHorizontal: spacing.space8,
   },
   suggestedPromptsContainer: {
-    marginTop: 32,
+    marginTop: spacing.space8,
     width: '100%',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.space4,
   },
   suggestedPromptsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 12,
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontSemibold,
+    color: colors.brownMuted,
+    marginBottom: spacing.space3,
   },
   promptButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: colors.white,
+    padding: spacing.space4,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.space2,
+    borderWidth: 2,
+    borderColor: colors.brown,
+    ...shadows.sm,
   },
   promptText: {
-    fontSize: 16,
-    color: '#333',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brown,
     flex: 1,
   },
   messageContainer: {
-    marginBottom: 16,
+    marginBottom: spacing.space4,
     maxWidth: '80%',
   },
   userMessageContainer: {
@@ -317,60 +325,68 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   messageBubble: {
-    padding: 12,
-    borderRadius: 16,
+    padding: spacing.space3,
+    borderRadius: borderRadius.lg,
     maxWidth: '100%',
+    borderWidth: 2,
+    borderColor: colors.brown,
   },
   userBubble: {
-    backgroundColor: '#4CAF50',
-    borderBottomRightRadius: 4,
+    backgroundColor: colors.primary,
+    borderBottomRightRadius: borderRadius.sm,
   },
   aiBubble: {
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: colors.white,
+    borderBottomLeftRadius: borderRadius.sm,
   },
   messageText: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    lineHeight: typography.textBase * 1.4,
   },
   userText: {
-    color: '#fff',
+    color: colors.brown,
   },
   aiText: {
-    color: '#333',
+    color: colors.brown,
   },
   timestamp: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-    marginHorizontal: 4,
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textXs,
+    color: colors.brownMuted,
+    marginTop: spacing.space1,
+    marginHorizontal: spacing.space1,
   },
   recipesContainer: {
-    marginTop: 12,
+    marginTop: spacing.space3,
   },
   recipesTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontSemibold,
+    color: colors.brownMuted,
+    marginBottom: spacing.space2,
   },
   recipeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9F9F9',
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 8,
+    backgroundColor: colors.cream,
+    borderRadius: borderRadius.sm,
+    padding: spacing.space2,
+    marginBottom: spacing.space2,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.brown,
   },
   recipeThumbnail: {
     width: 50,
     height: 50,
-    borderRadius: 6,
-    marginRight: 12,
+    borderRadius: borderRadius.sm,
+    marginRight: spacing.space3,
+  },
+  recipeThumbnailPlaceholder: {
+    backgroundColor: colors.creamLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   recipeInfo: {
     flex: 1,
@@ -379,113 +395,123 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   recipeName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
+    color: colors.brown,
     flex: 1,
   },
   itemsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 8,
-    gap: 8,
+    marginTop: spacing.space2,
+    gap: spacing.space2,
   },
   itemChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    backgroundColor: colors.peach,
+    paddingHorizontal: spacing.space3,
+    paddingVertical: spacing.space2,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.brown,
   },
   itemChipContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.space2,
   },
   itemName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
+    color: colors.brown,
   },
   itemQuantity: {
-    fontSize: 12,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textXs,
+    color: colors.brownMuted,
   },
   warningIcon: {
-    marginLeft: 6,
+    marginLeft: spacing.space2,
   },
   typingIndicator: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: spacing.space4,
+    paddingBottom: spacing.space2,
   },
   typingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.space4,
+    paddingVertical: spacing.space3,
+    borderRadius: borderRadius.lg,
     alignSelf: 'flex-start',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    gap: spacing.space2,
+    borderWidth: 2,
+    borderColor: colors.brown,
   },
   typingText: {
-    fontSize: 14,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textSm,
+    color: colors.brownMuted,
     fontStyle: 'italic',
   },
   quickActions: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: spacing.space4,
+    paddingVertical: spacing.space2,
+    gap: spacing.space2,
   },
   quickActionChip: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    backgroundColor: colors.peachLight,
+    paddingHorizontal: spacing.space3,
+    paddingVertical: spacing.space2,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: '#4CAF50',
+    borderColor: colors.primary,
   },
   quickActionText: {
-    fontSize: 12,
-    color: '#4CAF50',
-    fontWeight: '500',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textXs,
+    color: colors.brown,
+    fontWeight: typography.fontMedium,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    paddingHorizontal: spacing.space4,
+    paddingTop: spacing.space3,
+    backgroundColor: colors.white,
+    borderTopWidth: 2,
+    borderTopColor: colors.brown,
   },
   input: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 8,
+    backgroundColor: colors.cream,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.space4,
+    paddingVertical: spacing.space3,
+    marginRight: spacing.space2,
     maxHeight: 100,
-    fontSize: 16,
-    color: '#333',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brown,
+    borderWidth: 2,
+    borderColor: colors.brownMuted,
   },
   sendButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.primary,
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.brown,
   },
   sendButtonDisabled: {
-    backgroundColor: '#CCC',
+    backgroundColor: colors.creamDark,
   },
 });

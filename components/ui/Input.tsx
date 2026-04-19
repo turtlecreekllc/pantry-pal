@@ -7,6 +7,7 @@ import {
   TextInputProps,
   ViewStyle,
 } from 'react-native';
+import { colors, typography, spacing, borderRadius } from '../../lib/theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -14,13 +15,16 @@ interface InputProps extends TextInputProps {
   containerStyle?: ViewStyle;
 }
 
+/**
+ * Brand-styled input component with label and error support
+ */
 export function Input({
   label,
   error,
   containerStyle,
   style,
   ...props
-}: InputProps) {
+}: InputProps): React.ReactElement {
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
@@ -30,7 +34,7 @@ export function Input({
           error && styles.inputError,
           style,
         ]}
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.brownMuted}
         {...props}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -40,31 +44,34 @@ export function Input({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: spacing.space4,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 6,
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
+    color: colors.brown,
+    marginBottom: spacing.space2,
   },
   input: {
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    fontSize: 17,
-    color: '#333',
-    minHeight: 44,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.brownMuted,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space4,
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brown,
+    minHeight: 48,
   },
   inputError: {
-    borderColor: '#f44336',
+    borderColor: colors.error,
   },
   errorText: {
-    color: '#f44336',
-    fontSize: 12,
-    marginTop: 4,
+    fontFamily: 'Nunito-Regular',
+    color: colors.error,
+    fontSize: typography.textXs,
+    marginTop: spacing.space1,
   },
 });

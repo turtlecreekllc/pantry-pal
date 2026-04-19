@@ -1,18 +1,23 @@
 import { Stack } from 'expo-router';
+import { colors, typography } from '../../lib/theme';
 
-export default function MealLayout() {
+export default function MealLayout(): React.ReactElement {
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#4CAF50',
+          backgroundColor: colors.primary,
         },
-        headerTintColor: '#fff',
+        headerTintColor: colors.brown,
         headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 17,
+          fontFamily: 'Quicksand-Bold',
+          fontWeight: typography.fontBold,
+          fontSize: typography.textLg,
+          color: colors.brown,
         },
         headerShadowVisible: false,
+        headerBackTitle: '',
+        headerBackVisible: true,
       }}
     />
   );
