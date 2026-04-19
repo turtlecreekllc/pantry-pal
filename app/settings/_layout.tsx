@@ -140,6 +140,18 @@ export default function SettingsLayout(): React.ReactElement {
           title: 'Preferences',
         }}
       />
+      <Stack.Screen
+        name="services"
+        options={{
+          title: 'Connected Services',
+        }}
+      />
+      <Stack.Screen
+        name="ai-feedback"
+        options={{
+          title: 'AI Feedback',
+        }}
+      />
     </Stack>
   );
 }

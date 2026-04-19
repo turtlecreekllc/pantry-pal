@@ -12,6 +12,7 @@ import {
   Image,
   Pressable,
 } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -46,19 +47,20 @@ export default function ChatScreen(): React.ReactElement {
     }
   }, []);
 
-  const handleSend = async (): Promise<void> => {
-    if (!inputText.trim() || isLoading) return;
+  const handleSend = async (overrideText?: string): Promise<void> => {
+    const text = (overrideText ?? inputText).trim();
+    if (!text || isLoading) return;
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputText.trim(),
+      content: text,
       timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
     try {
-      const response = await sendChatMessage(inputText.trim(), pantryItems, messages);
+      const response = await sendChatMessage(text, pantryItems, messages);
       setMessages((prev) => [...prev, response]);
     } catch (error) {
       console.error('Chat error:', error);
@@ -75,8 +77,7 @@ export default function ChatScreen(): React.ReactElement {
   };
 
   const handlePromptPress = (prompt: string): void => {
-    setInputText(prompt);
-    handleSend();
+    handleSend(prompt);
   };
 
   const handleRecipePress = (recipeId: string): void => {
@@ -88,7 +89,11 @@ export default function ChatScreen(): React.ReactElement {
     return (
       <View style={[styles.messageContainer, isUser ? styles.userMessageContainer : styles.aiMessageContainer]}>
         <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
-          <Text style={[styles.messageText, isUser ? styles.userText : styles.aiText]}>{item.content}</Text>
+          {isUser ? (
+            <Text style={[styles.messageText, styles.userText]}>{item.content}</Text>
+          ) : (
+            <Markdown style={markdownStyles}>{item.content}</Markdown>
+          )}
           {item.recipes && item.recipes.length > 0 && (
             <View style={styles.recipesContainer}>
               <Text style={styles.recipesTitle}>Recipes I found:</Text>
@@ -203,7 +208,7 @@ export default function ChatScreen(): React.ReactElement {
             <Pressable
               key={index}
               style={styles.quickActionChip}
-              onPress={() => setInputText(prompt)}
+              onPress={() => handlePromptPress(prompt)}
             >
               <Text style={styles.quickActionText}>{prompt}</Text>
             </Pressable>
@@ -223,7 +228,7 @@ export default function ChatScreen(): React.ReactElement {
         />
         <TouchableOpacity
           style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
-          onPress={handleSend}
+          onPress={() => handleSend()}
           disabled={!inputText.trim() || isLoading}
           accessibilityLabel="Send message"
           accessibilityRole="button"
@@ -234,6 +239,59 @@ export default function ChatScreen(): React.ReactElement {
     </KeyboardAvoidingView>
   );
 }
+
+const markdownStyles = {
+  body: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brown,
+    lineHeight: typography.textBase * 1.4,
+  },
+  strong: {
+    fontFamily: 'Nunito-Bold',
+    fontWeight: typography.fontBold as any,
+  },
+  em: {
+    fontStyle: 'italic' as const,
+  },
+  bullet_list: {
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  ordered_list: {
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  list_item: {
+    marginBottom: 2,
+  },
+  heading1: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: typography.textXl,
+    fontWeight: typography.fontBold as any,
+    color: colors.brown,
+    marginBottom: 4,
+  },
+  heading2: {
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontSemibold as any,
+    color: colors.brown,
+    marginBottom: 4,
+  },
+  code_inline: {
+    backgroundColor: colors.creamDark,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textSm,
+    color: colors.brown,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 4,
+  },
+};
 
 const styles = StyleSheet.create({
   container: {
