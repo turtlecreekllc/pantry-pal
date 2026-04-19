@@ -162,19 +162,23 @@ export default function PhotoScannerScreen() {
     try {
       // Ensure we have valid data for Supabase
       // Note: fill_level column doesn't exist in the database yet
+      // Round quantity to integer since database expects integer type
+      const quantity = typeof item.quantity === 'number' && !isNaN(item.quantity)
+        ? Math.round(item.quantity)
+        : 1;
       const itemData = {
         name: item.name?.trim() || 'Unknown Item',
-        quantity: typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 1,
+        quantity,
         unit: item.unit || 'item',
         brand: item.brand || null,
         category: item.category || null,
         location: itemLocations[item.id] || selectedLocation,
         barcode: null,
         expiration_date: item.expirationDate || null,
-        image_url: null,
+        image_url: item.imageUrl || null,
         nutrition_json: null,
         location_notes: null,
-        original_quantity: typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 1,
+        original_quantity: quantity,
         usage_history: null,
       };
 
@@ -445,6 +449,8 @@ export default function PhotoScannerScreen() {
             onNext={handleNext}
             location={itemLocations[currentItem.id] || selectedLocation}
             onLocationChange={handleLocationChange}
+            approvedCount={addedCount}
+            skippedCount={skippedCount}
           />
 
           <TouchableOpacity style={styles.retakeButton} onPress={handleRetake}>

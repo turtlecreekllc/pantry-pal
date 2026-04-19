@@ -11,10 +11,13 @@ import {
   ScrollView,
   Keyboard,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ScannedItem, Unit, Location, FillLevel } from '../lib/types';
+import { VoiceAssistantModal } from './VoiceAssistantModal';
+import { ImageSearchButton } from './ImageSearchModal';
 
 interface ScanReviewCardProps {
   item: ScannedItem;
@@ -27,6 +30,8 @@ interface ScanReviewCardProps {
   onNext: () => void;
   location?: Location;
   onLocationChange?: (location: Location) => void;
+  approvedCount?: number;
+  skippedCount?: number;
 }
 
 const UNIT_OPTIONS: { label: string; value: Unit }[] = [
@@ -77,6 +82,8 @@ export function ScanReviewCard({
   onNext,
   location = 'pantry',
   onLocationChange,
+  approvedCount = 0,
+  skippedCount = 0,
 }: ScanReviewCardProps) {
   const [editMode, setEditMode] = useState(false);
   const [editedName, setEditedName] = useState(item.name);
@@ -96,6 +103,8 @@ export function ScanReviewCard({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceText, setVoiceText] = useState('');
+  const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
+  const [editedImageUrl, setEditedImageUrl] = useState<string | undefined>(item.imageUrl);
 
   // Reset edit state when item changes (navigating between items)
   useEffect(() => {
@@ -106,6 +115,7 @@ export function ScanReviewCard({
     setEditedVolumeUnit(item.volumeUnit || 'oz');
     setEditedFillLevel(item.fillLevel);
     setEditedExpirationDate(item.expirationDate ? new Date(item.expirationDate) : undefined);
+    setEditedImageUrl(item.imageUrl);
     setShowDatePicker(false);
     setEditMode(false);
     setVoiceText('');
@@ -140,6 +150,7 @@ export function ScanReviewCard({
       expirationDate: editedExpirationDate
         ? editedExpirationDate.toISOString().split('T')[0]
         : undefined,
+      imageUrl: editedImageUrl,
       status: 'edited',
     };
     onEdit(editedItem);
@@ -421,6 +432,7 @@ export function ScanReviewCard({
       expirationDate: editedExpirationDate
         ? editedExpirationDate.toISOString().split('T')[0]
         : undefined,
+      imageUrl: editedImageUrl,
       status: 'accepted',
     };
 
@@ -688,17 +700,100 @@ export function ScanReviewCard({
           /* View mode */
           <>
             <View style={styles.itemDetails}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
-              <View style={styles.quantityRowView}>
-                <Ionicons name="cube-outline" size={18} color="#4CAF50" />
-                <Text style={styles.quantityText}>{getQuantityDisplay()}</Text>
-                {item.category && (
-                  <View style={styles.categoryBadge}>
-                    <Text style={styles.categoryText}>{item.category}</Text>
+              {/* Product Image */}
+              <View style={styles.imageSection}>
+                {editedImageUrl ? (
+                  <Image source={{ uri: editedImageUrl }} style={styles.productImage} />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Ionicons name="image-outline" size={32} color="#ccc" />
+                  </View>
+                )}
+                <ImageSearchButton
+                  productName={editedName || item.name}
+                  brand={editedBrand || item.brand || undefined}
+                  size={editedVolumeQuantity && editedVolumeUnit ? `${editedVolumeQuantity} ${editedVolumeUnit}` : undefined}
+                  onImageSelected={(url) => setEditedImageUrl(url)}
+                  hasImage={!!editedImageUrl}
+                  compact
+                />
+              </View>
+
+              <View style={styles.itemHeader}>
+                <View style={styles.itemTitleRow}>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  {item.category && (
+                    <View style={styles.categoryBadge}>
+                      <Text style={styles.categoryText}>{item.category}</Text>
+                    </View>
+                  )}
+                </View>
+                {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
+              </View>
+
+              {/* Prominent Quantity Section */}
+              <View style={styles.quantitySectionView}>
+                <View style={styles.quantityMainRow}>
+                  {/* Unit Count */}
+                  <View style={styles.quantityBlock}>
+                    <View style={styles.quantityIconWrapper}>
+                      <Ionicons name="layers-outline" size={20} color="#4CAF50" />
+                    </View>
+                    <Text style={styles.quantityBlockLabel}>Count</Text>
+                    <Text style={styles.quantityBlockValue}>
+                      {item.unitCount || item.quantity}
+                    </Text>
+                    <Text style={styles.quantityBlockUnit}>
+                      {item.unitCount ? (item.unitCount === 1 ? 'item' : 'items') : item.unit}
+                    </Text>
+                  </View>
+
+                  {/* Volume per item (if applicable) */}
+                  {item.volumeQuantity && item.volumeUnit && (
+                    <>
+                      <View style={styles.quantityDivider}>
+                        <Text style={styles.quantityDividerText}>×</Text>
+                      </View>
+                      <View style={styles.quantityBlock}>
+                        <View style={[styles.quantityIconWrapper, { backgroundColor: '#E3F2FD' }]}>
+                          <Ionicons name="beaker-outline" size={20} color="#2196F3" />
+                        </View>
+                        <Text style={styles.quantityBlockLabel}>Size Each</Text>
+                        <Text style={styles.quantityBlockValue}>{item.volumeQuantity}</Text>
+                        <Text style={styles.quantityBlockUnit}>
+                          {VOLUME_UNIT_OPTIONS.find((u) => u.value === item.volumeUnit)?.label || item.volumeUnit}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+
+                  {/* Fill Level (if applicable) */}
+                  {item.fillLevel && (
+                    <View style={styles.quantityBlock}>
+                      <View style={[styles.quantityIconWrapper, { backgroundColor: '#E1F5FE' }]}>
+                        <Ionicons name="water-outline" size={20} color="#03A9F4" />
+                      </View>
+                      <Text style={styles.quantityBlockLabel}>Fill Level</Text>
+                      <Text style={styles.quantityBlockValue}>
+                        {FILL_LEVEL_OPTIONS.find((f) => f.value === item.fillLevel)?.label}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Total calculation when using volume */}
+                {item.unitCount && item.volumeQuantity && item.volumeUnit && (
+                  <View style={styles.totalRow}>
+                    <Ionicons name="calculator-outline" size={14} color="#666" />
+                    <Text style={styles.totalText}>
+                      Total: {item.unitCount * item.volumeQuantity}{' '}
+                      {VOLUME_UNIT_OPTIONS.find((u) => u.value === item.volumeUnit)?.label || item.volumeUnit}
+                    </Text>
                   </View>
                 )}
               </View>
+
+              {/* Meta info row */}
               <View style={styles.metaRow}>
                 <View style={styles.metaItem}>
                   <Ionicons name="location-outline" size={14} color="#666" />
@@ -706,14 +801,6 @@ export function ScanReviewCard({
                     {LOCATION_OPTIONS.find((l) => l.value === location)?.label || location}
                   </Text>
                 </View>
-                {item.fillLevel && (
-                  <View style={styles.metaItem}>
-                    <Ionicons name="water-outline" size={14} color="#2196F3" />
-                    <Text style={[styles.metaText, { color: '#2196F3' }]}>
-                      {FILL_LEVEL_OPTIONS.find((f) => f.value === item.fillLevel)?.label}
-                    </Text>
-                  </View>
-                )}
                 {item.expirationDate && (
                   <View style={styles.metaItem}>
                     <Ionicons name="calendar-outline" size={14} color="#FF9800" />
@@ -727,6 +814,23 @@ export function ScanReviewCard({
                 )}
               </View>
             </View>
+
+            {/* Voice Assistant Button - Prominent */}
+            <TouchableOpacity
+              style={styles.voiceAssistantButton}
+              onPress={() => setShowVoiceAssistant(true)}
+            >
+              <View style={styles.voiceAssistantIcon}>
+                <Ionicons name="mic" size={20} color="#fff" />
+              </View>
+              <View style={styles.voiceAssistantContent}>
+                <Text style={styles.voiceAssistantTitle}>Voice Edit</Text>
+                <Text style={styles.voiceAssistantSubtitle}>
+                  Tap to speak your changes
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#4CAF50" />
+            </TouchableOpacity>
 
             {/* Action buttons */}
             <View style={styles.actions}>
@@ -756,6 +860,36 @@ export function ScanReviewCard({
             </View>
           </>
         )}
+
+        {/* Voice Assistant Modal */}
+        <VoiceAssistantModal
+          visible={showVoiceAssistant}
+          onClose={() => setShowVoiceAssistant(false)}
+          item={item}
+          location={location}
+          onItemUpdate={(updatedItem) => {
+            onEdit(updatedItem);
+          }}
+          onLocationChange={onLocationChange}
+          onAccept={() => {
+            setShowVoiceAssistant(false);
+            handleAccept();
+          }}
+          onReject={() => {
+            setShowVoiceAssistant(false);
+            handleReject();
+          }}
+          onGoBack={currentIndex > 0 ? () => {
+            setShowVoiceAssistant(false);
+            onPrevious();
+          } : undefined}
+          progress={{
+            currentIndex,
+            totalItems,
+            approvedCount,
+            skippedCount,
+          }}
+        />
       </View>
 
       {/* Navigation */}
@@ -858,16 +992,153 @@ const styles = StyleSheet.create({
   itemDetails: {
     marginBottom: 16,
   },
+  imageSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  productImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  imagePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemHeader: {
+    marginBottom: 12,
+  },
+  itemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   itemName: {
     fontSize: 22,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
+    flex: 1,
   },
   itemBrand: {
     fontSize: 15,
     color: '#666',
-    marginBottom: 8,
+    marginTop: 2,
+  },
+  categoryBadge: {
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  categoryText: {
+    fontSize: 11,
+    color: '#666',
+  },
+  quantitySectionView: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  quantityMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  quantityBlock: {
+    alignItems: 'center',
+    minWidth: 70,
+    paddingHorizontal: 8,
+  },
+  quantityIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  quantityBlockLabel: {
+    fontSize: 10,
+    color: '#999',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  quantityBlockValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+  },
+  quantityBlockUnit: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 1,
+  },
+  quantityDivider: {
+    paddingHorizontal: 4,
+  },
+  quantityDividerText: {
+    fontSize: 20,
+    color: '#999',
+    fontWeight: '300',
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  totalText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  voiceAssistantButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+    borderStyle: 'dashed',
+  },
+  voiceAssistantIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4CAF50',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  voiceAssistantContent: {
+    flex: 1,
+  },
+  voiceAssistantTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  voiceAssistantSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
   quantityRowView: {
     flexDirection: 'row',
@@ -879,17 +1150,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: '#4CAF50',
     fontWeight: '600',
-  },
-  categoryBadge: {
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginLeft: 'auto',
-  },
-  categoryText: {
-    fontSize: 11,
-    color: '#666',
   },
   metaRow: {
     flexDirection: 'row',

@@ -48,7 +48,7 @@ export function HouseholdInviteModal({ visible, onClose, householdId }: Househol
     if (!inviteLink) return;
     try {
       await Share.share({
-        message: `Join my household on Pantry Pal: ${inviteLink}`,
+        message: `Join my household on DinnerPlans: ${inviteLink}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);

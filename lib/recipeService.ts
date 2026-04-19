@@ -1,8 +1,52 @@
 import * as mealDb from './mealDb';
 import * as spoonacular from './spoonacular';
-import { RecipePreview, ExtendedRecipe, PantryItem, ScoredRecipe, RecipeSource } from './types';
+import { RecipePreview, ExtendedRecipe, PantryItem, ScoredRecipe, RecipeSource, ImportedRecipe, RecipeIngredient } from './types';
+import { supabase } from './supabase';
 
 export type { RecipeSource };
+
+/**
+ * Fetches an imported recipe from Supabase and converts to ExtendedRecipe format
+ */
+async function getImportedRecipeDetails(importedId: string): Promise<ExtendedRecipe | null> {
+  try {
+    const { data, error } = await supabase
+      .from('imported_recipes')
+      .select('*')
+      .eq('id', importedId)
+      .single();
+    if (error || !data) {
+      console.error('Error fetching imported recipe:', error);
+      return null;
+    }
+    const imported = {
+      ...data,
+      ingredients: data.ingredients as RecipeIngredient[],
+      diets: data.diets || [],
+      tags: data.tags || [],
+    } as ImportedRecipe;
+    return {
+      id: `imported-${imported.id}`,
+      name: imported.title,
+      category: imported.category || 'Uncategorized',
+      area: imported.cuisine || 'Various',
+      instructions: imported.instructions,
+      thumbnail: imported.image_url || '',
+      youtubeUrl: null,
+      ingredients: imported.ingredients,
+      source: imported.source_url,
+      recipeSource: 'imported',
+      readyInMinutes: imported.total_time || undefined,
+      servings: imported.servings || undefined,
+      diets: imported.diets,
+      difficulty: imported.difficulty || undefined,
+      nutrition: imported.nutrition || undefined,
+    };
+  } catch (err) {
+    console.error('Error in getImportedRecipeDetails:', err);
+    return null;
+  }
+}
 
 // Unified recipe search across all sources
 export async function searchRecipes(
@@ -68,6 +112,12 @@ export async function searchByIngredients(
 
 // Get recipe details from appropriate source
 export async function getRecipeDetails(id: string): Promise<ExtendedRecipe | null> {
+  // Handle imported recipes (format: imported-{uuid})
+  if (id.startsWith('imported-')) {
+    const importedId = id.replace('imported-', '');
+    return getImportedRecipeDetails(importedId);
+  }
+  // Handle Spoonacular recipes (format: spoonacular-{id})
   if (id.startsWith('spoonacular-')) {
     const numericId = spoonacular.extractSpoonacularId(id);
     if (numericId) {
@@ -75,7 +125,6 @@ export async function getRecipeDetails(id: string): Promise<ExtendedRecipe | nul
     }
     return null;
   }
-
   // Default to TheMealDB
   const recipe = await mealDb.getRecipeById(id);
   if (recipe) {
@@ -87,18 +136,22 @@ export async function getRecipeDetails(id: string): Promise<ExtendedRecipe | nul
   return null;
 }
 
-// Normalize ingredient name for matching
-function normalizeIngredient(name: string): string {
+// Normalize ingredient name for matching - with null-safety
+function normalizeIngredient(name: string | null | undefined): string {
+  if (!name) return '';
   return name
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '')
     .trim();
 }
 
-// Check if two ingredients match
-function ingredientMatches(recipeIngredient: string, pantryItem: string): boolean {
+// Check if two ingredients match - with null-safety
+function ingredientMatches(recipeIngredient: string | null | undefined, pantryItem: string | null | undefined): boolean {
+  if (!recipeIngredient || !pantryItem) return false;
   const normalized1 = normalizeIngredient(recipeIngredient);
   const normalized2 = normalizeIngredient(pantryItem);
+
+  if (!normalized1 || !normalized2) return false;
 
   // Direct match
   if (normalized1 === normalized2) return true;
@@ -121,25 +174,28 @@ function ingredientMatches(recipeIngredient: string, pantryItem: string): boolea
   return false;
 }
 
-// Score a recipe based on pantry items
+// Score a recipe based on pantry items - with null-safety
 export function scoreRecipe(recipe: ExtendedRecipe, pantryItems: PantryItem[]): ScoredRecipe {
-  const pantryNames = pantryItems.map((item) => item.name);
+  const ingredients = recipe.ingredients ?? [];
+  const pantryNames = (pantryItems ?? []).map((item) => item?.name).filter(Boolean);
   const matchedIngredients: string[] = [];
   const missingIngredients: string[] = [];
 
-  for (const recipeIng of recipe.ingredients) {
+  for (const recipeIng of ingredients) {
+    const ingredientName = recipeIng?.ingredient;
+    if (!ingredientName) continue;
     const matched = pantryNames.some((pantryName) =>
-      ingredientMatches(recipeIng.ingredient, pantryName)
+      ingredientMatches(ingredientName, pantryName)
     );
 
     if (matched) {
-      matchedIngredients.push(recipeIng.ingredient);
+      matchedIngredients.push(ingredientName);
     } else {
-      missingIngredients.push(recipeIng.ingredient);
+      missingIngredients.push(ingredientName);
     }
   }
 
-  const totalIngredients = recipe.ingredients.length;
+  const totalIngredients = ingredients.length;
   const matchScore = totalIngredients > 0 ? (matchedIngredients.length / totalIngredients) * 100 : 0;
 
   return {
@@ -183,7 +239,7 @@ export async function searchAndScoreRecipes(
   return scoredRecipes.sort((a, b) => b.matchScore - a.matchScore);
 }
 
-// Apply filters to scored recipes
+// Apply filters to scored recipes - with null-safety
 export function filterRecipes(
   recipes: ScoredRecipe[],
   filters: {
@@ -193,17 +249,21 @@ export function filterRecipes(
     searchText?: string;
   }
 ): ScoredRecipe[] {
-  return recipes.filter((recipe) => {
+  return (recipes ?? []).filter((recipe) => {
+    if (!recipe) return false;
     // Cuisine filter
     if (filters.cuisine && recipe.area) {
-      if (!recipe.area.toLowerCase().includes(filters.cuisine.toLowerCase())) {
+      const area = recipe.area ?? '';
+      const cuisine = filters.cuisine ?? '';
+      if (!area.toLowerCase().includes(cuisine.toLowerCase())) {
         return false;
       }
     }
 
     // Diet filter (Spoonacular recipes have diets array)
     if (filters.diet && recipe.diets) {
-      if (!recipe.diets.some((d) => d.toLowerCase().includes(filters.diet!.toLowerCase()))) {
+      const dietFilter = filters.diet ?? '';
+      if (!(recipe.diets ?? []).some((d) => (d ?? '').toLowerCase().includes(dietFilter.toLowerCase()))) {
         return false;
       }
     }
@@ -217,8 +277,9 @@ export function filterRecipes(
 
     // Text search
     if (filters.searchText) {
-      const searchLower = filters.searchText.toLowerCase();
-      if (!recipe.name.toLowerCase().includes(searchLower)) {
+      const searchLower = (filters.searchText ?? '').toLowerCase();
+      const recipeName = (recipe.name ?? '').toLowerCase();
+      if (!recipeName.includes(searchLower)) {
         return false;
       }
     }

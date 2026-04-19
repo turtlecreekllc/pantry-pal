@@ -5,6 +5,11 @@ import { useAuth } from '../context/AuthContext';
 import { useHouseholdContext } from '../context/HouseholdContext';
 import { logActivity } from '../lib/householdService';
 import { gamificationService } from '../lib/gamificationService';
+import {
+  scheduleItemExpiryNotification,
+  cancelItemExpiryNotification,
+} from '../lib/notificationScheduler';
+import { invalidateTonightCache } from '../lib/tonightCacheService';
 
 interface UseItemOptions {
   note?: string;
@@ -107,6 +112,16 @@ export function usePantry(options: UsePantryOptions = {}): UsePantryReturn {
             actionType: 'item_added',
             actionData: { item_name: item.name, quantity: item.quantity },
           });
+          // New pantry item → tonight's suggestions may change; invalidate cache
+          invalidateTonightCache(householdId).catch(() => {});
+        }
+        if (item.expiration_date) {
+          scheduleItemExpiryNotification({
+            userId: user.id,
+            itemId: data.id,
+            itemName: item.name,
+            expiryDate: item.expiration_date,
+          });
         }
       }
     } catch (err: unknown) {
@@ -144,6 +159,18 @@ export function usePantry(options: UsePantryOptions = {}): UsePantryReturn {
             actionData: { item_id: id, updates },
           });
         }
+        if (updates.expiration_date !== undefined) {
+          if (updates.expiration_date) {
+            scheduleItemExpiryNotification({
+              userId: user.id,
+              itemId: id,
+              itemName: data.name,
+              expiryDate: updates.expiration_date,
+            });
+          } else {
+            cancelItemExpiryNotification(id);
+          }
+        }
       }
     } catch (err) {
       console.error('Error updating item:', err);
@@ -169,6 +196,7 @@ export function usePantry(options: UsePantryOptions = {}): UsePantryReturn {
       const { error: deleteError } = await query;
       if (deleteError) throw deleteError;
       setPantryItems((prev) => prev.filter((item) => item.id !== id));
+      cancelItemExpiryNotification(id);
       if (isHouseholdMode && householdId && itemToDelete) {
         logActivity({
           householdId,
@@ -176,6 +204,8 @@ export function usePantry(options: UsePantryOptions = {}): UsePantryReturn {
           actionType: 'item_deleted',
           actionData: { item_name: itemToDelete.name },
         });
+        // Pantry item removed → tonight's suggestions may change; invalidate cache
+        invalidateTonightCache(householdId).catch(() => {});
       }
     } catch (err) {
       console.error('Error deleting item:', err);

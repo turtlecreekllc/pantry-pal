@@ -15,7 +15,7 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    loadSettings();
+    // loadSettings(); // Disabled automatic init to prevent crashes
   }, []);
 
   const loadSettings = async () => {

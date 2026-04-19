@@ -51,8 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Redirect to login if not authenticated
       router.replace('/(auth)/login');
     } else if (session && inAuthGroup) {
-      // Redirect to main app if authenticated
-      router.replace('/(tabs)');
+      // Redirect to Tonight screen after successful login
+      router.replace('/(tabs)/tonight');
     }
   }, [session, segments, initialized]);
 

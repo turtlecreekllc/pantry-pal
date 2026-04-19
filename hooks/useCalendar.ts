@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CalendarService } from '../lib/calendarService';
+import { CalendarService, CalendarCreationNotSupportedError, WritableCalendar } from '../lib/calendarService';
 import { MealPlan } from '../lib/types';
 import { Alert, Linking, Platform } from 'react-native';
 
-const CALENDAR_SETTINGS_KEY = 'pantry_pal_calendar_settings';
-const EVENT_MAPPING_KEY = 'pantry_pal_calendar_events';
+const CALENDAR_SETTINGS_KEY = 'dinner_plans_calendar_settings';
+const EVENT_MAPPING_KEY = 'dinner_plans_calendar_events';
 
 export interface CalendarSettings {
   enabled: boolean;
   calendarId: string | null;
+  calendarName: string | null;
   reminders: boolean;
   reminderMinutes: number;
 }
@@ -17,6 +18,7 @@ export interface CalendarSettings {
 const DEFAULT_SETTINGS: CalendarSettings = {
   enabled: false,
   calendarId: null,
+  calendarName: null,
   reminders: true,
   reminderMinutes: 60,
 };
@@ -26,6 +28,8 @@ export function useCalendar() {
   const [loading, setLoading] = useState(true);
   const [hasPermissions, setHasPermissions] = useState(false);
   const [eventMapping, setEventMapping] = useState<Record<string, string>>({}); // mealId -> eventId
+  const [needsCalendarSelection, setNeedsCalendarSelection] = useState(false);
+  const [availableCalendars, setAvailableCalendars] = useState<WritableCalendar[]>([]);
 
   useEffect(() => {
     loadSettings();
@@ -81,7 +85,18 @@ export function useCalendar() {
     }
   };
 
-  const enableCalendar = async () => {
+  const loadAvailableCalendars = async (): Promise<WritableCalendar[]> => {
+    try {
+      const calendars = await CalendarService.getWritableCalendars();
+      setAvailableCalendars(calendars);
+      return calendars;
+    } catch (e) {
+      console.error('Failed to load available calendars', e);
+      return [];
+    }
+  };
+
+  const enableCalendar = async (): Promise<boolean | 'needs_selection'> => {
     try {
       const granted = await CalendarService.requestPermissions();
       if (!granted) {
@@ -95,20 +110,31 @@ export function useCalendar() {
         );
         return false;
       }
-
       setHasPermissions(true);
-
-      let calendarId = settings.calendarId;
-      // Always verify/recreate if needed
-      calendarId = await CalendarService.createPantryPalCalendar();
-
-      await saveSettings({
-        ...settings,
-        enabled: true,
-        calendarId,
-      });
-
-      return true;
+      try {
+        const calendarId = await CalendarService.createDinnerPlansCalendar();
+        await saveSettings({
+          ...settings,
+          enabled: true,
+          calendarId,
+          calendarName: 'Dinner Plans Meals',
+        });
+        return true;
+      } catch (error) {
+        if (error instanceof CalendarCreationNotSupportedError) {
+          const calendars = await loadAvailableCalendars();
+          if (calendars.length === 0) {
+            Alert.alert(
+              'No Calendars Available',
+              'No writable calendars found on your device. Please add a calendar in your device settings first.'
+            );
+            return false;
+          }
+          setNeedsCalendarSelection(true);
+          return 'needs_selection';
+        }
+        throw error;
+      }
     } catch (e) {
       console.error('Error enabling calendar', e);
       Alert.alert('Error', 'Failed to enable calendar sync.');
@@ -116,17 +142,39 @@ export function useCalendar() {
     }
   };
 
+  const selectCalendar = async (calendar: WritableCalendar): Promise<boolean> => {
+    try {
+      await saveSettings({
+        ...settings,
+        enabled: true,
+        calendarId: calendar.id,
+        calendarName: calendar.title,
+      });
+      setNeedsCalendarSelection(false);
+      return true;
+    } catch (e) {
+      console.error('Error selecting calendar', e);
+      Alert.alert('Error', 'Failed to select calendar.');
+      return false;
+    }
+  };
+
+  const cancelCalendarSelection = () => {
+    setNeedsCalendarSelection(false);
+  };
+
   const disableCalendar = async () => {
     await saveSettings({
       ...settings,
       enabled: false,
     });
+    setNeedsCalendarSelection(false);
   };
 
   const ensureCalendarExists = async (): Promise<string | null> => {
     try {
       // Try to create/get existing
-      const calendarId = await CalendarService.createPantryPalCalendar();
+      const calendarId = await CalendarService.createDinnerPlansCalendar();
       if (calendarId !== settings.calendarId) {
         await saveSettings({ ...settings, calendarId });
       }
@@ -254,10 +302,15 @@ export function useCalendar() {
     settings,
     loading,
     hasPermissions,
+    needsCalendarSelection,
+    availableCalendars,
     enableCalendar,
     disableCalendar,
+    selectCalendar,
+    cancelCalendarSelection,
+    loadAvailableCalendars,
     syncMeal,
     removeMealEvent,
-    checkPermissions
+    checkPermissions,
   };
 }

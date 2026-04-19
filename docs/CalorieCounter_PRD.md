@@ -6,20 +6,20 @@
 |-------|-------|
 | **Version** | 1.0 |
 | **Date** | December 27, 2025 |
-| **Author** | Pantry Pal Development Team |
+| **Author** | DinnerPlans Development Team |
 | **Status** | Draft |
 
 ---
 
 ## 1. Executive Summary
 
-This PRD outlines the integration strategy for connecting Pantry Pal with the top three calorie counting applications: MyFitnessPal, Lose It!, and Cronometer. Due to API access limitations across all three platforms, the recommended approach leverages Apple HealthKit (iOS) and Google Health Connect (Android) as intermediary bridges, enabling users to sync their meal nutrition data with their preferred calorie tracking apps.
+This PRD outlines the integration strategy for connecting DinnerPlans with the top three calorie counting applications: MyFitnessPal, Lose It!, and Cronometer. Due to API access limitations across all three platforms, the recommended approach leverages Apple HealthKit (iOS) and Google Health Connect (Android) as intermediary bridges, enabling users to sync their meal nutrition data with their preferred calorie tracking apps.
 
 ---
 
 ## 2. Problem Statement
 
-Users who track calories and macros often use dedicated apps like MyFitnessPal, Lose It!, or Cronometer. Currently, when they log meals in Pantry Pal, they must manually re-enter nutrition information into their calorie tracker, creating friction and reducing adherence to both meal planning and calorie tracking goals.
+Users who track calories and macros often use dedicated apps like MyFitnessPal, Lose It!, or Cronometer. Currently, when they log meals in DinnerPlans, they must manually re-enter nutrition information into their calorie tracker, creating friction and reducing adherence to both meal planning and calorie tracking goals.
 
 ---
 
@@ -61,11 +61,11 @@ Users who track calories and macros often use dedicated apps like MyFitnessPal, 
 
 ### 4.1 Primary Approach: Health Platform Bridge
 
-Since all three target calorie counters sync with native health platforms, Pantry Pal will write nutrition data to Apple HealthKit (iOS) and Google Health Connect (Android). Users can then enable their calorie tracking app to read from these health platforms.
+Since all three target calorie counters sync with native health platforms, DinnerPlans will write nutrition data to Apple HealthKit (iOS) and Google Health Connect (Android). Users can then enable their calorie tracking app to read from these health platforms.
 
 ```
 ┌─────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Pantry Pal │ ──► │  HealthKit /    │ ──► │  MyFitnessPal   │
+│  DinnerPlans │ ──► │  HealthKit /    │ ──► │  MyFitnessPal   │
 │   (Meal)    │     │  Health Connect │     │  Lose It!       │
 │             │     │                 │     │  Cronometer     │
 └─────────────┘     └─────────────────┘     └─────────────────┘
@@ -81,9 +81,9 @@ Since all three target calorie counters sync with native health platforms, Pantr
 
 ### 4.3 Data Mapping
 
-Pantry Pal meal nutrition data maps to health platform types:
+DinnerPlans meal nutrition data maps to health platform types:
 
-| Pantry Pal Field | HealthKit Type | Health Connect Type |
+| DinnerPlans Field | HealthKit Type | Health Connect Type |
 |------------------|----------------|---------------------|
 | Calories | HKQuantityTypeIdentifierDietaryEnergyConsumed | NutritionRecord.energy |
 | Protein (g) | HKQuantityTypeIdentifierDietaryProtein | NutritionRecord.protein |
@@ -98,7 +98,7 @@ Pantry Pal meal nutrition data maps to health platform types:
 
 ### 5.1 Core Sync Features
 
-1. Users can connect Pantry Pal to Apple HealthKit or Google Health Connect
+1. Users can connect DinnerPlans to Apple HealthKit or Google Health Connect
 2. When a meal is marked as "consumed," nutrition data automatically syncs to health platform
 3. Manual "Log to Health" button available for users who want explicit control
 4. Meal type tagging (breakfast, lunch, dinner, snack) preserved in sync
@@ -227,7 +227,7 @@ CREATE TABLE nutrition_sync_queue (
 
 ### 7.2 Daily Usage
 
-1. User plans and consumes meals as normal in Pantry Pal
+1. User plans and consumes meals as normal in DinnerPlans
 2. When marking meal as "eaten," nutrition data silently syncs
 3. Small sync indicator shows status (syncing/synced/error)
 4. Data appears in user's calorie tracker automatically
@@ -245,9 +245,9 @@ CREATE TABLE nutrition_sync_queue (
 
 1. **Explicit Consent:** Users must opt-in to health sync; never enabled by default
 2. **Minimal Permissions:** Request only write permissions, not read access to existing health data
-3. **Transparent Data Flow:** Clear explanation that data flows to Apple/Google, not to Pantry Pal servers
+3. **Transparent Data Flow:** Clear explanation that data flows to Apple/Google, not to DinnerPlans servers
 4. **Easy Disconnect:** One-tap option to revoke access and stop syncing
-5. **No Data Storage:** Health sync happens on-device; Pantry Pal servers never see health data
+5. **No Data Storage:** Health sync happens on-device; DinnerPlans servers never see health data
 
 ---
 

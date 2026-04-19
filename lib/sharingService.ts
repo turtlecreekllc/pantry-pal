@@ -1,6 +1,6 @@
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Share, Platform } from 'react-native';
 import { ExtendedRecipe, RecipeIngredient, Cookbook } from './types';
 
@@ -54,7 +54,9 @@ export function formatRecipeAsText(recipe: {
   lines.push('------------');
   const steps = recipe.instructions.split('\n').filter(Boolean);
   steps.forEach((step, index) => {
-    lines.push(`${index + 1}. ${step.trim()}`);
+    // Remove existing step numbers (e.g., "1. ", "2) ", "Step 1: ") to avoid duplication
+    const cleanStep = step.trim().replace(/^(\d+[\.\)\:]?\s*|Step\s*\d+[\.\:\)]*\s*)/i, '');
+    lines.push(`${index + 1}. ${cleanStep}`);
   });
   lines.push('');
 
@@ -65,7 +67,7 @@ export function formatRecipeAsText(recipe: {
   }
 
   lines.push('---');
-  lines.push('Shared from Pantry Pal');
+  lines.push('Shared from DinnerPlans');
 
   return lines.join('\n');
 }
@@ -116,7 +118,10 @@ function generateRecipeHTML(recipe: {
   if (recipe.cookTime) meta.push(`<span>Cook: ${recipe.cookTime} min</span>`);
   if (recipe.servings) meta.push(`<span>Servings: ${recipe.servings}</span>`);
 
-  const steps = recipe.instructions.split('\n').filter(Boolean);
+  // Remove existing step numbers to avoid duplication in ordered list
+  const steps = recipe.instructions.split('\n').filter(Boolean).map(step => 
+    step.trim().replace(/^(\d+[\.\)\:]?\s*|Step\s*\d+[\.\:\)]*\s*)/i, '')
+  );
 
   return `
     <!DOCTYPE html>
@@ -253,7 +258,7 @@ function generateRecipeHTML(recipe: {
       ${recipe.source ? `<div class="source">Source: ${recipe.source}</div>` : ''}
 
       <div class="footer">
-        Created with Pantry Pal
+        Created with DinnerPlans
       </div>
     </body>
     </html>
@@ -355,7 +360,10 @@ function generateCookbookHTML(
     if (recipe.cookTime) meta.push(`Cook: ${recipe.cookTime} min`);
     if (recipe.servings) meta.push(`Servings: ${recipe.servings}`);
 
-    const steps = recipe.instructions.split('\n').filter(Boolean);
+    // Remove existing step numbers to avoid duplication in ordered list
+    const steps = recipe.instructions.split('\n').filter(Boolean).map(step => 
+      step.trim().replace(/^(\d+[\.\)\:]?\s*|Step\s*\d+[\.\:\)]*\s*)/i, '')
+    );
 
     return `
       <div class="recipe" ${index > 0 ? 'style="page-break-before: always;"' : ''}>
@@ -465,7 +473,7 @@ function generateCookbookHTML(
       <div class="cover">
         <h1>${cookbookName}</h1>
         <p>${recipes.length} Recipes</p>
-        <p style="margin-top: 40px;">Created with Pantry Pal</p>
+        <p style="margin-top: 40px;">Created with DinnerPlans</p>
       </div>
 
       <div class="toc">
@@ -478,7 +486,7 @@ function generateCookbookHTML(
       ${recipePages.join('')}
 
       <div class="footer">
-        Created with Pantry Pal
+        Created with DinnerPlans
       </div>
     </body>
     </html>

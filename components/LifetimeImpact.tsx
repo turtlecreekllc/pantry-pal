@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Share } from 'react-native';
+import { View, Text, StyleSheet, Share, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { gamificationService } from '../lib/gamificationService';
 import { UserImpactSummary } from '../lib/types';
-import { Button } from './ui/Button';
 
 export function LifetimeImpact() {
   const { user } = useAuth();
@@ -27,7 +26,7 @@ export function LifetimeImpact() {
       const money = (summary.money_saved_cents / 100).toFixed(2);
       
       await Share.share({
-        message: `I've saved ${weightLbs} lbs of food and $${money} with Pantry Pal! 🌱 #FoodWaste #Sustainability`,
+        message: `I've saved ${weightLbs} lbs of food and $${money} with DinnerPlans! 🌱 #FoodWaste #Sustainability`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -58,13 +57,13 @@ export function LifetimeImpact() {
       
       <View style={styles.divider} />
       
-      <Button 
-        title="Share My Impact" 
-        onPress={handleShare}
-        variant="outline"
-        icon={<Ionicons name="share-outline" size={18} color="#4CAF50" />}
+      <TouchableOpacity 
         style={styles.shareButton}
-      />
+        onPress={handleShare}
+      >
+        <Ionicons name="share-outline" size={18} color="#4CAF50" />
+        <Text style={styles.shareButtonText}>Share My Impact</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -104,7 +103,19 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
     borderColor: '#4CAF50',
+    gap: 8,
+  },
+  shareButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4CAF50',
   },
 });
 

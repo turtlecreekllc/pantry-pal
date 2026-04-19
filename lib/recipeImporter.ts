@@ -4,15 +4,8 @@ import {
   RecipeImportResult,
   RecipeIngredient,
 } from './types';
-
-// Get API key from environment
-const getOpenAIKey = (): string => {
-  const key = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-  if (!key) {
-    throw new Error('EXPO_PUBLIC_OPENAI_API_KEY is not configured. Please add it to your .env file.');
-  }
-  return key;
-};
+import { callClaude, callClaudeVision } from './claudeService';
+import { compressImageForClaude } from './imageUtils';
 
 // Platform detection patterns
 const PLATFORM_PATTERNS: Record<ImportPlatform, RegExp[]> = {
@@ -188,57 +181,6 @@ Respond with this exact JSON structure:
   "diets": []
 }`;
 
-interface OpenAIResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-  error?: {
-    message: string;
-  };
-}
-
-/**
- * Retry wrapper for network requests with exponential backoff
- */
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3,
-  initialDelayMs: number = 1000
-): Promise<T> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
-
-      // Don't retry on API key errors or invalid requests
-      const errorMessage = lastError.message.toLowerCase();
-      if (
-        errorMessage.includes('api key') ||
-        errorMessage.includes('401') ||
-        errorMessage.includes('400') ||
-        errorMessage.includes('invalid') ||
-        errorMessage.includes('configured')
-      ) {
-        throw lastError;
-      }
-
-      // Only retry on network/timeout errors
-      if (attempt < maxRetries) {
-        const delay = initialDelayMs * Math.pow(2, attempt - 1);
-        console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  throw lastError || new Error('Request failed after retries');
-}
-
 interface ExtractedRecipeData {
   title: string;
   description?: string;
@@ -255,93 +197,13 @@ interface ExtractedRecipeData {
   imageUrl?: string;
 }
 
-/**
- * Call OpenAI API for text-based extraction
- */
 async function callOpenAIText(prompt: string, content: string): Promise<string> {
-  const apiKey = getOpenAIKey();
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: prompt },
-        { role: 'user', content },
-      ],
-      max_tokens: 3000,
-      temperature: 0.1,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      `OpenAI API error: ${response.status} - ${(errorData as OpenAIResponse).error?.message || response.statusText}`
-    );
-  }
-
-  const data: OpenAIResponse = await response.json();
-
-  if (!data.choices?.[0]?.message?.content) {
-    throw new Error('Invalid response from OpenAI API');
-  }
-
-  return data.choices[0].message.content;
+  return callClaude(prompt, [{ role: 'user', content }], { maxTokens: 3000, temperature: 0.1 });
 }
 
-/**
- * Call OpenAI Vision API for image-based extraction
- */
 async function callOpenAIVision(imageBase64: string): Promise<string> {
-  const apiKey = getOpenAIKey();
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: PHOTO_OCR_PROMPT },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:image/jpeg;base64,${imageBase64}`,
-                detail: 'high',
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 3000,
-      temperature: 0.1,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      `OpenAI API error: ${response.status} - ${(errorData as OpenAIResponse).error?.message || response.statusText}`
-    );
-  }
-
-  const data: OpenAIResponse = await response.json();
-
-  if (!data.choices?.[0]?.message?.content) {
-    throw new Error('Invalid response from OpenAI API');
-  }
-
-  return data.choices[0].message.content;
+  const compressed = await compressImageForClaude(imageBase64);
+  return callClaudeVision(PHOTO_OCR_PROMPT, compressed, 'image/jpeg');
 }
 
 /**
@@ -456,32 +318,115 @@ function calculateConfidence(data: ExtractedRecipeData): number {
   return Math.round(score * 100) / 100;
 }
 
+interface WebpageContent {
+  content: string;
+  extractedImageUrl: string | null;
+}
+
+/**
+ * Extract image URL from various sources in HTML
+ */
+function extractImageFromHtml(html: string): string | null {
+  // 1. Try Open Graph image (most common for recipe sites)
+  const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+  if (ogImageMatch?.[1]) {
+    return ogImageMatch[1];
+  }
+  // 2. Try Twitter Card image
+  const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i);
+  if (twitterImageMatch?.[1]) {
+    return twitterImageMatch[1];
+  }
+  // 3. Try schema.org image in meta tag
+  const schemaImageMatch = html.match(/<meta[^>]*itemprop=["']image["'][^>]*content=["']([^"']+)["']/i);
+  if (schemaImageMatch?.[1]) {
+    return schemaImageMatch[1];
+  }
+  // 4. Try to find a large image in the content area (likely the recipe photo)
+  const imgMatches = html.match(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi);
+  if (imgMatches) {
+    for (const imgTag of imgMatches) {
+      const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
+      const src = srcMatch?.[1];
+      if (src && !src.includes('logo') && !src.includes('icon') && !src.includes('avatar') &&
+          !src.includes('ad') && !src.includes('pixel') && !src.includes('tracking') &&
+          (src.includes('recipe') || src.includes('dish') || src.includes('food') ||
+           imgTag.includes('width') || imgTag.includes('recipe') || imgTag.includes('hero'))) {
+        return src;
+      }
+    }
+    // Fallback: return first large-looking image
+    for (const imgTag of imgMatches.slice(0, 10)) {
+      const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
+      const src = srcMatch?.[1];
+      if (src && (src.endsWith('.jpg') || src.endsWith('.jpeg') || src.endsWith('.png') || src.endsWith('.webp')) &&
+          !src.includes('logo') && !src.includes('icon') && !src.includes('avatar')) {
+        return src;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract image URL from JSON-LD recipe schema
+ */
+function extractImageFromJsonLd(jsonLd: unknown): string | null {
+  if (!jsonLd || typeof jsonLd !== 'object') return null;
+  const schema = jsonLd as Record<string, unknown>;
+  // image can be a string, array of strings, or ImageObject
+  const image = schema.image;
+  if (typeof image === 'string') {
+    return image;
+  }
+  if (Array.isArray(image)) {
+    const firstImage = image[0];
+    if (typeof firstImage === 'string') return firstImage;
+    if (firstImage && typeof firstImage === 'object') {
+      const imgObj = firstImage as Record<string, unknown>;
+      return (imgObj.url as string) || (imgObj.contentUrl as string) || null;
+    }
+  }
+  if (image && typeof image === 'object') {
+    const imgObj = image as Record<string, unknown>;
+    return (imgObj.url as string) || (imgObj.contentUrl as string) || null;
+  }
+  return null;
+}
+
 /**
  * Fetch webpage content and extract text
  */
-async function fetchWebpageContent(url: string): Promise<string> {
+async function fetchWebpageContent(url: string): Promise<WebpageContent> {
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; PantryPal/1.0; Recipe Importer)',
+        'User-Agent': 'Mozilla/5.0 (compatible; DinnerPlans/1.0; Recipe Importer)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
     });
-
     if (!response.ok) {
       throw new Error(`Failed to fetch URL: ${response.status}`);
     }
-
     const html = await response.text();
-
+    let extractedImageUrl: string | null = null;
     // Try to extract JSON-LD recipe schema first (most reliable)
     const jsonLdRecipe = extractJsonLdRecipe(html);
     if (jsonLdRecipe) {
-      return `[STRUCTURED RECIPE DATA]\n${JSON.stringify(jsonLdRecipe, null, 2)}`;
+      // Extract image from JSON-LD
+      extractedImageUrl = extractImageFromJsonLd(jsonLdRecipe);
+      return {
+        content: `[STRUCTURED RECIPE DATA]\n${JSON.stringify(jsonLdRecipe, null, 2)}`,
+        extractedImageUrl,
+      };
     }
-
+    // Extract image from HTML meta tags
+    extractedImageUrl = extractImageFromHtml(html);
     // Fall back to extracting text content
-    return extractTextFromHtml(html);
+    return {
+      content: extractTextFromHtml(html),
+      extractedImageUrl,
+    };
   } catch (error) {
     console.error('Error fetching webpage:', error);
     throw new Error(`Failed to fetch recipe from URL: ${(error as Error).message}`);
@@ -566,6 +511,257 @@ function extractTextFromHtml(html: string): string {
 }
 
 /**
+ * Known recipe site domains for link detection
+ */
+const RECIPE_SITE_PATTERNS = [
+  /allrecipes\.com/i,
+  /foodnetwork\.com/i,
+  /epicurious\.com/i,
+  /seriouseats\.com/i,
+  /bonappetit\.com/i,
+  /tasty\.co/i,
+  /delish\.com/i,
+  /simplyrecipes\.com/i,
+  /budgetbytes\.com/i,
+  /skinnytaste\.com/i,
+  /cookieandkate\.com/i,
+  /minimalistbaker\.com/i,
+  /halfbakedharvest\.com/i,
+  /pinchofyum\.com/i,
+  /loveandlemons\.com/i,
+  /damndelicious\.net/i,
+  /thekitchn\.com/i,
+  /food52\.com/i,
+  /smittenkitchen\.com/i,
+  /sallysbakingaddiction\.com/i,
+  /kingarthurbaking\.com/i,
+  /bbc\.co\.uk\/food/i,
+  /bbcgoodfood\.com/i,
+  /taste\.com\.au/i,
+  /recipetineats\.com/i,
+  /justonecookbook\.com/i,
+  /woksoflife\.com/i,
+  /maangchi\.com/i,
+  /thewoksoflife\.com/i,
+  /cafedelites\.com/i,
+  /gimmesomeoven\.com/i,
+  /hostthetoast\.com/i,
+  /iamafoodblog\.com/i,
+  /marthastewart\.com/i,
+  /myrecipes\.com/i,
+  /eatingwell\.com/i,
+  /cooking\.nytimes\.com/i,
+  /recipes\.com/i,
+  /yummly\.com/i,
+  /food\.com/i,
+];
+
+/**
+ * Link shortener services that might contain recipe links
+ */
+const LINK_SHORTENER_PATTERNS = [
+  /bit\.ly/i,
+  /tinyurl\.com/i,
+  /t\.co/i,
+  /goo\.gl/i,
+  /ow\.ly/i,
+  /buff\.ly/i,
+  /linktr\.ee/i,
+  /stan\.store/i,
+  /beacons\.ai/i,
+  /linkin\.bio/i,
+  /tap\.bio/i,
+  /bio\.link/i,
+  /hoo\.be/i,
+  /snipfeed\.co/i,
+  /lnk\.to/i,
+];
+
+/**
+ * Extract potential recipe links from HTML content
+ * Looks for links to known recipe sites or link-in-bio services
+ */
+function extractRecipeLinks(html: string, sourceUrl: string): string[] {
+  const links: string[] = [];
+  const seenUrls = new Set<string>();
+  
+  // Get the source domain to exclude self-links
+  let sourceDomain = '';
+  try {
+    sourceDomain = new URL(sourceUrl).hostname.toLowerCase();
+  } catch {
+    // Ignore
+  }
+  
+  // Find all href attributes in anchor tags
+  const hrefPattern = /href=["']([^"']+)["']/gi;
+  let match;
+  
+  while ((match = hrefPattern.exec(html)) !== null) {
+    let url = match[1];
+    
+    // Skip empty, anchor, or javascript links
+    if (!url || url.startsWith('#') || url.startsWith('javascript:')) {
+      continue;
+    }
+    
+    // Make relative URLs absolute
+    if (!url.startsWith('http')) {
+      try {
+        url = new URL(url, sourceUrl).href;
+      } catch {
+        continue;
+      }
+    }
+    
+    // Skip if we've already seen this URL
+    if (seenUrls.has(url.toLowerCase())) continue;
+    seenUrls.add(url.toLowerCase());
+    
+    // Skip self-links (same domain as source)
+    try {
+      const urlDomain = new URL(url).hostname.toLowerCase();
+      if (urlDomain === sourceDomain) continue;
+    } catch {
+      continue;
+    }
+    
+    // Check if it's a known recipe site
+    const isRecipeSite = RECIPE_SITE_PATTERNS.some(pattern => pattern.test(url));
+    if (isRecipeSite) {
+      links.push(url);
+      continue;
+    }
+    
+    // Check if it's a link shortener (might lead to recipe)
+    const isLinkShortener = LINK_SHORTENER_PATTERNS.some(pattern => pattern.test(url));
+    if (isLinkShortener) {
+      links.push(url);
+      continue;
+    }
+    
+    // Check if URL contains recipe-related keywords
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes('recipe') || lowerUrl.includes('cook') || 
+        lowerUrl.includes('food') || lowerUrl.includes('dish')) {
+      links.push(url);
+    }
+  }
+  
+  // Also look for URLs in text content (sometimes not in anchor tags)
+  const textUrls = html.match(/https?:\/\/[^\s<>"']+/gi) || [];
+  for (const url of textUrls) {
+    if (seenUrls.has(url.toLowerCase())) continue;
+    seenUrls.add(url.toLowerCase());
+    
+    const isRecipeSite = RECIPE_SITE_PATTERNS.some(pattern => pattern.test(url));
+    const isLinkShortener = LINK_SHORTENER_PATTERNS.some(pattern => pattern.test(url));
+    
+    if (isRecipeSite || isLinkShortener) {
+      links.push(url);
+    }
+  }
+  
+  return links;
+}
+
+/**
+ * Follow a shortened URL to get the final destination
+ */
+async function followShortUrl(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DinnerPlans/1.0)',
+      },
+    });
+    
+    // Return the final URL after redirects
+    if (response.url && response.url !== url) {
+      return response.url;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get platform-specific error message
+ */
+function getSocialMediaErrorHint(platform: ImportPlatform): string | null {
+  const hints: Partial<Record<ImportPlatform, string>> = {
+    instagram: 'Instagram posts often contain recipes in images or videos. Try taking a screenshot of the recipe and importing the image instead.',
+    tiktok: 'TikTok videos contain recipes visually. Try taking a screenshot of the recipe details or ingredients from the video.',
+    youtube: 'YouTube recipe videos may not have text content we can extract. Try copying the recipe from the video description or comments.',
+    facebook: 'Facebook posts may have limited access. Try taking a screenshot of the recipe or copying the recipe text.',
+    pinterest: 'Pinterest pins often link to external recipe sites. If this fails, try opening the original recipe link.',
+  };
+  return hints[platform] || null;
+}
+
+/**
+ * Check if platform is a social media site
+ */
+function isSocialMediaPlatform(platform: ImportPlatform): boolean {
+  return ['instagram', 'tiktok', 'youtube', 'facebook', 'pinterest'].includes(platform);
+}
+
+/**
+ * Try to import from a recipe link found on a social media page
+ * This is a simplified version that doesn't recurse
+ */
+async function tryImportFromRecipeLink(recipeUrl: string): Promise<RecipeImportResult | null> {
+  try {
+    const { content, extractedImageUrl } = await fetchWebpageContent(recipeUrl);
+    
+    // Check if we got meaningful content
+    const contentLength = content.replace(/\s+/g, '').length;
+    if (contentLength < 100) {
+      return null;
+    }
+    
+    const aiResponse = await callOpenAIText(URL_EXTRACTION_PROMPT, content);
+    const extracted = parseJSONResponse<ExtractedRecipeData>(aiResponse);
+    const confidence = calculateConfidence(extracted);
+    
+    // Only accept if confidence is reasonable
+    if (confidence < 0.4) {
+      return null;
+    }
+    
+    // Use extracted image URL if AI didn't find one
+    if (!extracted.imageUrl && extractedImageUrl) {
+      extracted.imageUrl = extractedImageUrl;
+    }
+    
+    // Make relative URLs absolute
+    if (extracted.imageUrl && !extracted.imageUrl.startsWith('http')) {
+      try {
+        const baseUrl = new URL(recipeUrl);
+        extracted.imageUrl = new URL(extracted.imageUrl, baseUrl.origin).href;
+      } catch {
+        // Keep the original URL if parsing fails
+      }
+    }
+    
+    const recipe = toImportedRecipe(extracted, 'web', recipeUrl);
+    return {
+      success: true,
+      recipe,
+      error: null,
+      confidence,
+      platform: 'web',
+      warnings: confidence < 0.7 ? ['Some recipe details may be incomplete'] : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Import a recipe from a URL
  */
 export async function importFromUrl(url: string): Promise<RecipeImportResult> {
@@ -578,16 +774,117 @@ export async function importFromUrl(url: string): Promise<RecipeImportResult> {
       platform: 'web',
     };
   }
-
   const platform = detectPlatform(url);
-
+  
   try {
-    const content = await withRetry(() => fetchWebpageContent(url), 2, 500);
-    const aiResponse = await withRetry(() => callOpenAIText(URL_EXTRACTION_PROMPT, content));
+    // Fetch the page HTML
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DinnerPlans/1.0; Recipe Importer)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch URL: ${response.status}`);
+    }
+    
+    const html = await response.text();
+    
+    // For social media platforms, first look for external recipe links
+    if (isSocialMediaPlatform(platform)) {
+      console.log(`[RecipeImporter] Social media detected (${platform}), scanning for recipe links...`);
+      
+      const recipeLinks = extractRecipeLinks(html, url);
+      console.log(`[RecipeImporter] Found ${recipeLinks.length} potential recipe links`);
+      
+      // Try each recipe link (limit to first 3 to avoid too many requests)
+      for (const link of recipeLinks.slice(0, 3)) {
+        console.log(`[RecipeImporter] Trying recipe link: ${link}`);
+        
+        // Check if it's a link shortener - follow it first
+        const isShortener = LINK_SHORTENER_PATTERNS.some(p => p.test(link));
+        let targetUrl = link;
+        
+        if (isShortener) {
+          console.log(`[RecipeImporter] Following shortened URL...`);
+          const expandedUrl = await followShortUrl(link);
+          if (expandedUrl) {
+            targetUrl = expandedUrl;
+            console.log(`[RecipeImporter] Expanded to: ${targetUrl}`);
+          }
+        }
+        
+        // Try to import from this link
+        const result = await tryImportFromRecipeLink(targetUrl);
+        if (result && result.success) {
+          console.log(`[RecipeImporter] Successfully imported from linked recipe!`);
+          return result;
+        }
+      }
+      
+      console.log(`[RecipeImporter] No recipe links worked, trying direct content extraction...`);
+    }
+    
+    // Process the HTML content (either non-social media or fallback)
+    let extractedImageUrl: string | null = null;
+    let content: string;
+    
+    // Try to extract JSON-LD recipe schema first (most reliable)
+    const jsonLdRecipe = extractJsonLdRecipe(html);
+    if (jsonLdRecipe) {
+      extractedImageUrl = extractImageFromJsonLd(jsonLdRecipe);
+      content = `[STRUCTURED RECIPE DATA]\n${JSON.stringify(jsonLdRecipe, null, 2)}`;
+    } else {
+      extractedImageUrl = extractImageFromHtml(html);
+      content = extractTextFromHtml(html);
+    }
+    
+    // Check if we got meaningful content
+    const contentLength = content.replace(/\s+/g, '').length;
+    if (contentLength < 100) {
+      const hint = getSocialMediaErrorHint(platform);
+      return {
+        success: false,
+        recipe: null,
+        error: hint || 'Could not extract enough content from this page. The page may require JavaScript or authentication.',
+        confidence: 0,
+        platform,
+      };
+    }
+    
+    const aiResponse = await callOpenAIText(URL_EXTRACTION_PROMPT, content);
     const extracted = parseJSONResponse<ExtractedRecipeData>(aiResponse);
     const confidence = calculateConfidence(extracted);
+    
+    // If confidence is too low, provide platform-specific help
+    if (confidence < 0.3) {
+      const hint = getSocialMediaErrorHint(platform);
+      if (hint) {
+        return {
+          success: false,
+          recipe: null,
+          error: `Could not find a recipe on this page. ${hint}`,
+          confidence: 0,
+          platform,
+        };
+      }
+    }
+    
+    // Use extracted image URL if AI didn't find one
+    if (!extracted.imageUrl && extractedImageUrl) {
+      extracted.imageUrl = extractedImageUrl;
+    }
+    // Make relative URLs absolute
+    if (extracted.imageUrl && !extracted.imageUrl.startsWith('http')) {
+      try {
+        const baseUrl = new URL(url);
+        extracted.imageUrl = new URL(extracted.imageUrl, baseUrl.origin).href;
+      } catch {
+        // Keep the original URL if parsing fails
+      }
+    }
     const recipe = toImportedRecipe(extracted, platform, url);
-
     return {
       success: true,
       recipe,
@@ -598,10 +895,20 @@ export async function importFromUrl(url: string): Promise<RecipeImportResult> {
     };
   } catch (error) {
     console.error('Error importing from URL:', error);
+    const hint = getSocialMediaErrorHint(platform);
+    let errorMessage = (error as Error).message;
+    
+    // Make error messages more user-friendly
+    if (errorMessage.includes('Failed to fetch')) {
+      errorMessage = hint 
+        ? `Could not access this page. ${hint}`
+        : 'Could not access this page. It may require login or have restricted access.';
+    }
+    
     return {
       success: false,
       recipe: null,
-      error: (error as Error).message,
+      error: errorMessage,
       confidence: 0,
       platform,
     };
@@ -623,7 +930,7 @@ export async function importFromText(text: string): Promise<RecipeImportResult> 
   }
 
   try {
-    const aiResponse = await withRetry(() => callOpenAIText(TEXT_EXTRACTION_PROMPT, text));
+    const aiResponse = await callOpenAIText(TEXT_EXTRACTION_PROMPT, text);
     const extracted = parseJSONResponse<ExtractedRecipeData>(aiResponse);
     const confidence = calculateConfidence(extracted);
     const recipe = toImportedRecipe(extracted, 'text');
@@ -663,7 +970,7 @@ export async function importFromPhoto(imageBase64: string): Promise<RecipeImport
   }
 
   try {
-    const aiResponse = await withRetry(() => callOpenAIVision(imageBase64));
+    const aiResponse = await callOpenAIVision(imageBase64);
     const extracted = parseJSONResponse<ExtractedRecipeData>(aiResponse);
     const confidence = calculateConfidence(extracted);
     const recipe = toImportedRecipe(extracted, 'photo');

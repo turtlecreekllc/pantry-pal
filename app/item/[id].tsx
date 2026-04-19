@@ -13,6 +13,7 @@ import {
   Modal,
   FlatList,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +28,9 @@ import { DatePicker } from '../../components/ui/DatePicker';
 import { VolumeGraph } from '../../components/VolumeGraph';
 import { UsageHistory } from '../../components/UsageHistory';
 import { Location, PantryItem, NutritionInfo, Unit } from '../../lib/types';
+import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
+import { removeBackground, isBackgroundRemovalAvailable } from '../../lib/backgroundRemovalService';
+import { searchProductImages, ImageSearchResult } from '../../lib/imageSearchService';
 
 const UNIT_OPTIONS: { label: string; value: Unit }[] = [
   { label: 'items', value: 'item' },
@@ -41,7 +45,7 @@ const UNIT_OPTIONS: { label: string; value: Unit }[] = [
   { label: 'tsp', value: 'tsp' },
 ];
 
-export default function ItemDetailsScreen() {
+export default function ItemDetailsScreen(): React.ReactElement {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeHousehold } = useHouseholdContext();
@@ -58,12 +62,16 @@ export default function ItemDetailsScreen() {
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState<Unit>('item');
   const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
-  const [itemCount, setItemCount] = useState(1); // Number of items (e.g., 3 cans)
+  const [itemCount, setItemCount] = useState(1);
   const [location, setLocation] = useState<Location>('pantry');
   const [locationNotes, setLocationNotes] = useState('');
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [showUnitPicker, setShowUnitPicker] = useState(false);
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
+  const [showImageSearch, setShowImageSearch] = useState(false);
+  const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResult[]>([]);
+  const [isSearchingImages, setIsSearchingImages] = useState(false);
 
   useEffect(() => {
     const foundItem = pantryItems.find((i) => i.id === id);
@@ -73,7 +81,6 @@ export default function ItemDetailsScreen() {
       setQuantity(foundItem.quantity);
       setUnit((foundItem.unit as Unit) || 'item');
       setOriginalQuantity(foundItem.original_quantity ?? foundItem.quantity);
-      // Extract item count from name if present (e.g., "3x Tomato Soup" -> 3)
       const countMatch = foundItem.name.match(/^(\d+)x\s/);
       setItemCount(countMatch ? parseInt(countMatch[1], 10) : 1);
       setLocation(foundItem.location);
@@ -85,20 +92,15 @@ export default function ItemDetailsScreen() {
     }
   }, [id, pantryItems]);
 
-  const handleUpdate = async () => {
+  const handleUpdate = async (): Promise<void> => {
     if (!item || !name.trim()) return;
-
     setLoading(true);
-
     try {
-      // Format name with item count if > 1
       let formattedName = name.trim();
-      // Remove existing count prefix if present
       formattedName = formattedName.replace(/^\d+x\s/, '');
       if (itemCount > 1) {
         formattedName = `${itemCount}x ${formattedName}`;
       }
-
       await updateItem(item.id, {
         name: formattedName,
         quantity,
@@ -110,7 +112,7 @@ export default function ItemDetailsScreen() {
         image_url: imageUrl,
       });
       setHasChanges(false);
-      Alert.alert('Success', 'Item updated!');
+      router.back();
     } catch (error) {
       console.error('Error updating item:', error);
       Alert.alert('Error', 'Failed to update item.');
@@ -119,75 +121,120 @@ export default function ItemDetailsScreen() {
     }
   };
 
-  const handleReplacePhoto = async () => {
-    const showOptions = () => {
-      const options = ['Take Photo', 'Choose from Library', 'Remove Photo', 'Cancel'];
-      const cancelButtonIndex = 3;
-      const destructiveButtonIndex = 2;
-
+  const handleReplacePhoto = async (): Promise<void> => {
+    const showOptions = (): void => {
+      const options = ['Take Photo', 'Choose from Library', 'Search Internet', 'Remove Photo', 'Cancel'];
+      const cancelButtonIndex = 4;
+      const destructiveButtonIndex = 3;
       if (Platform.OS === 'ios') {
         ActionSheetIOS.showActionSheetWithOptions(
           { options, cancelButtonIndex, destructiveButtonIndex },
           (buttonIndex) => {
             if (buttonIndex === 0) takePhoto();
             else if (buttonIndex === 1) pickImage();
-            else if (buttonIndex === 2) removePhoto();
+            else if (buttonIndex === 2) searchInternetPhoto();
+            else if (buttonIndex === 3) removePhoto();
           }
         );
       } else {
         Alert.alert('Change Photo', 'Select an option', [
           { text: 'Take Photo', onPress: takePhoto },
           { text: 'Choose from Library', onPress: pickImage },
+          { text: 'Search Internet', onPress: searchInternetPhoto },
           { text: 'Remove Photo', onPress: removePhoto, style: 'destructive' },
           { text: 'Cancel', style: 'cancel' },
         ]);
       }
     };
-
     showOptions();
   };
 
-  const takePhoto = async () => {
+  const searchInternetPhoto = async (): Promise<void> => {
+    if (!name.trim()) {
+      Alert.alert('Enter Name', 'Please enter a product name first to search for images.');
+      return;
+    }
+    setShowImageSearch(true);
+    setIsSearchingImages(true);
+    setImageSearchResults([]);
+    try {
+      const results = await searchProductImages(name);
+      setImageSearchResults(results);
+      if (results.length === 0) {
+        Alert.alert('No Results', 'No images found for this product. Try a different name.');
+        setShowImageSearch(false);
+      }
+    } catch (error) {
+      console.error('Image search error:', error);
+      Alert.alert('Error', 'Failed to search for images. Please try again.');
+      setShowImageSearch(false);
+    } finally {
+      setIsSearchingImages(false);
+    }
+  };
+
+  const selectInternetImage = (imageUrl: string): void => {
+    handleFieldChange(setImageUrl, imageUrl);
+    setShowImageSearch(false);
+    setImageSearchResults([]);
+  };
+
+  const processImageWithBackgroundRemoval = async (uri: string): Promise<void> => {
+    if (isBackgroundRemovalAvailable()) {
+      setIsRemovingBackground(true);
+      const result = await removeBackground(uri);
+      setIsRemovingBackground(false);
+      if (result.success && result.imageUri) {
+        handleFieldChange(setImageUrl, result.imageUri);
+      } else {
+        handleFieldChange(setImageUrl, uri);
+        if (result.error) {
+          Alert.alert('Note', 'Could not remove background. Original photo saved.');
+        }
+      }
+    } else {
+      handleFieldChange(setImageUrl, uri);
+    }
+  };
+
+  const takePhoto = async (): Promise<void> => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission Required', 'Camera access is needed to take photos.');
       return;
     }
-
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled && result.assets[0]) {
-      handleFieldChange(setImageUrl, result.assets[0].uri);
+      await processImageWithBackgroundRemoval(result.assets[0].uri);
     }
   };
 
-  const pickImage = async () => {
+  const pickImage = async (): Promise<void> => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled && result.assets[0]) {
       handleFieldChange(setImageUrl, result.assets[0].uri);
     }
   };
 
-  const removePhoto = () => {
+  const removePhoto = (): void => {
     handleFieldChange(setImageUrl, null);
   };
 
-  const handleCancel = () => {
+  const handleCancel = (): void => {
     router.back();
   };
 
-  const handleUnitSelect = () => {
+  const handleUnitSelect = (): void => {
     if (Platform.OS === 'ios') {
       const options = [...UNIT_OPTIONS.map(u => u.label), 'Cancel'];
       ActionSheetIOS.showActionSheetWithOptions(
@@ -203,7 +250,7 @@ export default function ItemDetailsScreen() {
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = (): void => {
     Alert.alert(
       'Delete Item',
       'Are you sure you want to delete this item from your pantry?',
@@ -230,15 +277,13 @@ export default function ItemDetailsScreen() {
     );
   };
 
-  const handleFindRecipes = () => {
+  const handleFindRecipes = (): void => {
     if (item) {
-      router.push({
-        pathname: '/(tabs)/recipes',
-      });
+      router.push({ pathname: '/(tabs)/recipes' });
     }
   };
 
-  const handleFieldChange = (setter: (value: any) => void, value: any) => {
+  const handleFieldChange = <T,>(setter: (value: T) => void, value: T): void => {
     setter(value);
     setHasChanges(true);
   };
@@ -247,7 +292,7 @@ export default function ItemDetailsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notFound}>
-          <Ionicons name="alert-circle-outline" size={64} color="#ccc" />
+          <Ionicons name="alert-circle-outline" size={64} color={colors.brownMuted} />
           <Text style={styles.notFoundText}>Item not found</Text>
           <Button title="Go Back" onPress={() => router.back()} />
         </View>
@@ -262,13 +307,20 @@ export default function ItemDetailsScreen() {
       <Stack.Screen
         options={{
           title: 'Item Details',
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: colors.brown,
+          headerTitleStyle: {
+            fontFamily: 'Quicksand-Bold',
+            fontWeight: typography.fontBold,
+            color: colors.brown,
+          },
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => router.back()}
               style={styles.backButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="chevron-back" size={28} color="#fff" />
+              <Ionicons name="chevron-back" size={28} color={colors.brown} />
             </TouchableOpacity>
           ),
         }}
@@ -282,18 +334,25 @@ export default function ItemDetailsScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <TouchableOpacity onPress={handleReplacePhoto} style={styles.imageContainer}>
+          <TouchableOpacity onPress={handleReplacePhoto} style={styles.imageContainer} disabled={isRemovingBackground}>
             {imageUrl ? (
               <Image source={{ uri: imageUrl }} style={styles.productImage} />
             ) : (
               <View style={styles.imagePlaceholder}>
-                <Ionicons name="nutrition" size={48} color="#ccc" />
+                <Ionicons name="nutrition" size={48} color={colors.brownMuted} />
               </View>
             )}
-            <View style={styles.imageOverlay}>
-              <Ionicons name="camera" size={20} color="#fff" />
-              <Text style={styles.imageOverlayText}>Change Photo</Text>
-            </View>
+            {isRemovingBackground ? (
+              <View style={styles.imageOverlayLoading}>
+                <ActivityIndicator size="small" color={colors.white} />
+                <Text style={styles.imageOverlayText}>Removing background...</Text>
+              </View>
+            ) : (
+              <View style={styles.imageOverlay}>
+                <Ionicons name="camera" size={20} color={colors.white} />
+                <Text style={styles.imageOverlayText}>Change Photo</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           {item.brand && (
@@ -332,7 +391,7 @@ export default function ItemDetailsScreen() {
               <Text style={styles.label}>Item Count</Text>
               <View style={styles.itemCountControls}>
                 <TouchableOpacity
-                  style={styles.itemCountButton}
+                  style={[styles.itemCountButton, itemCount <= 1 && styles.itemCountButtonDisabled]}
                   onPress={() => {
                     if (itemCount > 1) {
                       handleFieldChange(setItemCount, itemCount - 1);
@@ -340,14 +399,14 @@ export default function ItemDetailsScreen() {
                   }}
                   disabled={itemCount <= 1}
                 >
-                  <Ionicons name="remove" size={20} color={itemCount <= 1 ? '#ccc' : '#666'} />
+                  <Ionicons name="remove" size={20} color={itemCount <= 1 ? colors.brownMuted : colors.brown} />
                 </TouchableOpacity>
                 <Text style={styles.itemCountValue}>{itemCount}</Text>
                 <TouchableOpacity
                   style={styles.itemCountButton}
                   onPress={() => handleFieldChange(setItemCount, itemCount + 1)}
                 >
-                  <Ionicons name="add" size={20} color="#666" />
+                  <Ionicons name="add" size={20} color={colors.brown} />
                 </TouchableOpacity>
                 <Text style={styles.itemCountLabel}>
                   {itemCount === 1 ? 'item' : 'items'} of {quantity} {unit} each
@@ -363,7 +422,6 @@ export default function ItemDetailsScreen() {
                     value={quantity}
                     onChange={(value) => {
                       handleFieldChange(setQuantity, value);
-                      // Also update original quantity to match new volume
                       handleFieldChange(setOriginalQuantity, value);
                     }}
                     unit={unit}
@@ -375,7 +433,7 @@ export default function ItemDetailsScreen() {
                     <Text style={styles.unitDropdownText}>
                       {UNIT_OPTIONS.find(u => u.value === unit)?.label || unit}
                     </Text>
-                    <Ionicons name="chevron-down" size={16} color="#666" />
+                    <Ionicons name="chevron-down" size={16} color={colors.brown} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -485,7 +543,7 @@ export default function ItemDetailsScreen() {
             <Text style={styles.modalTitle}>Select Unit</Text>
             <FlatList
               data={UNIT_OPTIONS}
-              keyExtractor={(item) => item.value}
+              keyExtractor={(unitItem) => unitItem.value}
               renderItem={({ item: unitOption }) => (
                 <TouchableOpacity
                   style={[
@@ -506,7 +564,7 @@ export default function ItemDetailsScreen() {
                     {unitOption.label}
                   </Text>
                   {unit === unitOption.value && (
-                    <Ionicons name="checkmark" size={20} color="#4CAF50" />
+                    <Ionicons name="checkmark" size={20} color={colors.success} />
                   )}
                 </TouchableOpacity>
               )}
@@ -514,11 +572,72 @@ export default function ItemDetailsScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Image Search Modal */}
+      <Modal
+        visible={showImageSearch}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowImageSearch(false)}
+      >
+        <View style={styles.imageSearchBackdrop}>
+          <View style={styles.imageSearchContainer}>
+            <View style={styles.imageSearchHeader}>
+              <Text style={styles.imageSearchTitle}>Select an Image</Text>
+              <TouchableOpacity
+                onPress={() => setShowImageSearch(false)}
+                style={styles.imageSearchClose}
+              >
+                <Ionicons name="close" size={24} color={colors.brown} />
+              </TouchableOpacity>
+            </View>
+            {isSearchingImages ? (
+              <View style={styles.imageSearchLoading}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.imageSearchLoadingText}>Searching for "{name}"...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={imageSearchResults}
+                keyExtractor={(searchItem, index) => `${searchItem.url}-${index}`}
+                numColumns={2}
+                contentContainerStyle={styles.imageSearchGrid}
+                renderItem={({ item: searchResult }) => (
+                  <TouchableOpacity
+                    style={styles.imageSearchItem}
+                    onPress={() => selectInternetImage(searchResult.url)}
+                  >
+                    <Image
+                      source={{ uri: searchResult.url }}
+                      style={styles.imageSearchThumb}
+                      resizeMode="cover"
+                    />
+                    <Text style={styles.imageSearchItemTitle} numberOfLines={2}>
+                      {searchResult.title || 'Product Image'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.imageSearchEmpty}>
+                    <Ionicons name="images-outline" size={48} color={colors.brownMuted} />
+                    <Text style={styles.imageSearchEmptyText}>No images found</Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function NutritionItem({ label, value }: { label: string; value: string }) {
+interface NutritionItemProps {
+  label: string;
+  value: string;
+}
+
+function NutritionItem({ label, value }: NutritionItemProps): React.ReactElement {
   return (
     <View style={styles.nutritionItem}>
       <Text style={styles.nutritionValue}>{value}</Text>
@@ -530,7 +649,7 @@ function NutritionItem({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.cream,
   },
   backButton: {
     width: 44,
@@ -546,25 +665,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: spacing.space4,
   },
   imageContainer: {
     position: 'relative',
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: colors.brown,
   },
   productImage: {
     width: '100%',
     height: 200,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg - 2,
     resizeMode: 'cover',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.creamDark,
   },
   imagePlaceholder: {
     width: '100%',
     height: 200,
-    borderRadius: 12,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.creamDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -573,37 +693,52 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(61, 35, 20, 0.7)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    gap: 6,
+    paddingVertical: spacing.space2,
+    gap: spacing.space2,
+  },
+  imageOverlayLoading: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(61, 35, 20, 0.85)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.space3,
+    gap: spacing.space2,
   },
   imageOverlayText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Nunito-Medium',
+    color: colors.white,
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
   },
   brand: {
-    fontSize: 16,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brownMuted,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: spacing.space3,
   },
   form: {
-    marginTop: 16,
+    marginTop: spacing.space4,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 6,
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
+    color: colors.brown,
+    marginBottom: spacing.space2,
   },
   compactRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    gap: spacing.space3,
+    marginBottom: spacing.space3,
     alignItems: 'flex-end',
   },
   compactFieldQuantity: {
@@ -617,76 +752,84 @@ const styles = StyleSheet.create({
   quantityUnitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.space2,
   },
   unitDropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 4,
+    backgroundColor: colors.cream,
+    paddingHorizontal: spacing.space3,
+    paddingVertical: spacing.space3,
+    borderRadius: borderRadius.md,
+    gap: spacing.space1,
+    borderWidth: 2,
+    borderColor: colors.brown,
   },
   unitDropdownText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textSm,
+    fontWeight: typography.fontMedium,
+    color: colors.brown,
   },
   locationButtons: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
+    gap: spacing.space2,
+    marginBottom: spacing.space4,
   },
   locationButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: spacing.space2,
   },
   nutritionSection: {
-    marginTop: 8,
-    padding: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
+    marginTop: spacing.space2,
+    padding: spacing.space4,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.brown,
   },
   nutritionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.textBase,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
+    marginBottom: spacing.space3,
   },
   nutritionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: spacing.space4,
   },
   nutritionItem: {
     width: '45%',
   },
   nutritionValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#4CAF50',
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontSemibold,
+    color: colors.success,
   },
   nutritionLabel: {
-    fontSize: 12,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textXs,
+    color: colors.brownMuted,
     marginTop: 2,
   },
   recipesButton: {
-    marginTop: 16,
+    marginTop: spacing.space4,
   },
   footer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    padding: spacing.space4,
+    backgroundColor: colors.white,
+    borderTopWidth: 2,
+    borderTopColor: colors.brown,
   },
   saveButton: {
-    marginBottom: 8,
+    marginBottom: spacing.space2,
   },
   footerButtonRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.space3,
   },
   cancelButton: {
     flex: 1,
@@ -696,82 +839,176 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(61, 35, 20, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
     width: '80%',
     maxHeight: '60%',
-    padding: 16,
+    padding: spacing.space4,
+    borderWidth: 2,
+    borderColor: colors.brown,
+    ...shadows.lg,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
+    marginBottom: spacing.space3,
     textAlign: 'center',
   },
   modalOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: spacing.space4,
+    paddingHorizontal: spacing.space3,
+    borderRadius: borderRadius.md,
   },
   modalOptionSelected: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.successBg,
   },
   modalOptionText: {
-    fontSize: 16,
-    color: '#333',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brown,
   },
   modalOptionTextSelected: {
-    color: '#4CAF50',
-    fontWeight: '600',
+    color: colors.success,
+    fontFamily: 'Nunito-SemiBold',
+    fontWeight: typography.fontSemibold,
   },
   notFound: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
+    padding: spacing.space8,
   },
   notFoundText: {
-    fontSize: 18,
-    color: '#666',
-    marginVertical: 16,
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textLg,
+    color: colors.brownMuted,
+    marginVertical: spacing.space4,
   },
   itemCountRow: {
-    marginBottom: 16,
+    marginBottom: spacing.space4,
   },
   itemCountControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.space3,
   },
   itemCountButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f5f5f5',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.cream,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderWidth: 2,
+    borderColor: colors.brown,
+  },
+  itemCountButtonDisabled: {
+    borderColor: colors.brownMuted,
   },
   itemCountValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
     minWidth: 30,
     textAlign: 'center',
   },
   itemCountLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 4,
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textSm,
+    color: colors.brownMuted,
+    marginLeft: spacing.space1,
+  },
+  imageSearchBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(61, 35, 20, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  imageSearchContainer: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    maxHeight: '80%',
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderRightWidth: 2,
+    borderColor: colors.brown,
+  },
+  imageSearchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.space4,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.brown,
+    backgroundColor: colors.primary,
+    borderTopLeftRadius: borderRadius.xl - 2,
+    borderTopRightRadius: borderRadius.xl - 2,
+  },
+  imageSearchTitle: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontBold,
+    color: colors.brown,
+  },
+  imageSearchClose: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageSearchLoading: {
+    padding: spacing.space8,
+    alignItems: 'center',
+  },
+  imageSearchLoadingText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brownMuted,
+    marginTop: spacing.space3,
+  },
+  imageSearchGrid: {
+    padding: spacing.space3,
+  },
+  imageSearchItem: {
+    flex: 1,
+    margin: spacing.space2,
+    backgroundColor: colors.cream,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: colors.brown,
+    overflow: 'hidden',
+  },
+  imageSearchThumb: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: colors.creamDark,
+  },
+  imageSearchItemTitle: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textXs,
+    color: colors.brownMuted,
+    padding: spacing.space2,
+    textAlign: 'center',
+  },
+  imageSearchEmpty: {
+    padding: spacing.space8,
+    alignItems: 'center',
+  },
+  imageSearchEmptyText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brownMuted,
+    marginTop: spacing.space3,
   },
 });

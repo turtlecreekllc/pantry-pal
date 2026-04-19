@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Pantry Pal",
-    "slug": "pantry-pal",
+    "name": "Dinner Plans",
+    "slug": "dinner-plans",
     "owner": "turtle-creek-llc",
-    "version": "1.6.0",
+    "version": "1.6.20",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "scheme": "pantry-pal",
+    "scheme": "dinner-plans",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,19 +16,27 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.turtlecreekllc.pantrypal",
+      "bundleIdentifier": "com.turtlecreekllc.dinnerplans",
       "associatedDomains": [
-        "applinks:pantrypal.com"
+        "applinks:dinnerplans.ai"
       ],
-      "infoPlist": {
-        "NSCameraUsageDescription": "Pantry Pal needs camera access to scan product barcodes",
-        "NSCalendarsUsageDescription": "Pantry Pal needs calendar access to sync your meal plans",
-        "NSRemindersUsageDescription": "Pantry Pal needs reminders access to set meal reminders",
-        "NSHealthShareUsageDescription": "Pantry Pal needs access to write nutrition data to HealthKit.",
-        "NSHealthUpdateUsageDescription": "Pantry Pal needs access to update nutrition data in HealthKit.",
-        "ITSAppUsesNonExemptEncryption": false
+      "usesAppleSignIn": true,
+      "usesIcloudStorage": false,
+      "entitlements": {
+        "com.apple.developer.in-app-payments": []
       },
-      "buildNumber": "26",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Dinner Plans needs camera access to scan product barcodes",
+        "NSCalendarsUsageDescription": "Dinner Plans needs calendar access to sync your meal plans",
+        "NSRemindersUsageDescription": "Dinner Plans needs reminders access to set meal reminders",
+        "NSHealthShareUsageDescription": "Dinner Plans needs access to write nutrition data to HealthKit.",
+        "NSHealthUpdateUsageDescription": "Dinner Plans needs access to update nutrition data in HealthKit.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Dinner Plans needs photo library access to import recipe images",
+        "NSFaceIDUsageDescription": "Dinner Plans uses Face ID for quick and secure login",
+        "SKAdNetworkItems": []
+      },
+      "buildNumber": "79",
       "splash": {
         "backgroundColor": "#4CAF50",
         "resizeMode": "contain"
@@ -40,14 +48,16 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.turtlecreekllc.pantrypal",
+      "package": "com.turtlecreekllc.dinnerplans",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR",
         "android.permission.health.READ_NUTRITION",
-        "android.permission.health.WRITE_NUTRITION"
+        "android.permission.health.WRITE_NUTRITION",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
       ],
       "intentFilters": [
         {
@@ -62,6 +72,17 @@
           ]
         },
         {
+          "action": "android.intent.action.SEND",
+          "category": [
+            "android.intent.category.DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "image/*"
+            }
+          ]
+        },
+        {
           "action": "android.intent.action.VIEW",
           "category": [
             "android.intent.category.DEFAULT",
@@ -69,31 +90,59 @@
           ],
           "data": [
             {
-              "scheme": "pantry-pal"
+              "scheme": "dinner-plans"
+            },
+            {
+              "scheme": "https",
+              "host": "dinnerplans.ai"
             }
           ]
         }
       ],
-      "versionCode": 14
+      "versionCode": 37
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-router",
       "expo-secure-store",
       [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsText": true
+          },
+          "iosShareExtensionName": "ShareToDinnerPlans",
+          "androidIntentFilters": [
+            "text/*",
+            "image/*"
+          ],
+          "androidMainActivityAttributes": {
+            "android:launchMode": "singleTask"
+          }
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "isClinicalDataEnabled": false
+        }
+      ],
+      [
         "expo-camera",
         {
-          "cameraPermission": "Pantry Pal needs camera access to scan product barcodes"
+          "cameraPermission": "Dinner Plans needs camera access to scan product barcodes"
         }
       ],
       [
         "expo-calendar",
         {
-          "calendarPermission": "Pantry Pal needs calendar access to sync your meal plans",
-          "remindersPermission": "Pantry Pal needs reminders access to set meal reminders"
+          "calendarPermission": "Dinner Plans needs calendar access to sync your meal plans",
+          "remindersPermission": "Dinner Plans needs reminders access to set meal reminders"
         }
       ],
       [
@@ -121,12 +170,20 @@
             "minSdkVersion": 26
           }
         }
+      ],
+      "expo-web-browser",
+      "expo-apple-authentication",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Dinner Plans to use Face ID for quick login"
+        }
       ]
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "27c46aa7-c409-4f5b-b63d-db513cf5b493"
+        "projectId": "87c91514-54af-4eaa-9f95-f7d6248d76a5"
       }
     }
   }

@@ -60,7 +60,7 @@ export function VolumeGraph({
 
       const newPercentage = Math.max(0, Math.min(100, (gestureState.moveX / containerWidth) * 100));
       const newQuantity = (newPercentage / 100) * total;
-      const roundedQuantity = Math.round(newQuantity * 10) / 10;
+      const roundedQuantity = Math.round(newQuantity * 100) / 100;
       onQuantityChange(roundedQuantity);
     },
     onPanResponderRelease: () => {
@@ -75,7 +75,7 @@ export function VolumeGraph({
   const handleQuickAdjust = (amount: number) => {
     if (!onQuantityChange) return;
     const newQuantity = Math.max(0, Math.min(total, currentQuantity + amount));
-    const roundedQuantity = Math.round(newQuantity * 10) / 10;
+    const roundedQuantity = Math.round(newQuantity * 100) / 100;
     onQuantityChange(roundedQuantity);
   };
 
@@ -192,10 +192,10 @@ export function VolumeGraph({
 
       <View style={styles.details}>
         <Text style={styles.currentValue}>
-          {currentQuantity.toFixed(currentQuantity % 1 === 0 ? 0 : 1)} {unit}
+          {currentQuantity % 1 === 0 ? currentQuantity.toString() : currentQuantity.toFixed(2)} {unit}
         </Text>
         <Text style={styles.originalValue}>
-          of {total.toFixed(total % 1 === 0 ? 0 : 1)} {unit} ({Math.round(percentage)}%)
+          of {total % 1 === 0 ? total.toString() : total.toFixed(2)} {unit} ({Math.round(percentage)}%)
         </Text>
       </View>
 
@@ -207,19 +207,19 @@ export function VolumeGraph({
               style={styles.totalEditButton}
               onPress={() => {
                 const newTotal = Math.max(currentQuantity, total - (total * 0.1));
-                onOriginalQuantityChange(Math.round(newTotal * 10) / 10);
+                onOriginalQuantityChange(Math.round(newTotal * 100) / 100);
               }}
             >
               <Text style={styles.totalEditButtonText}>-10%</Text>
             </TouchableOpacity>
             <Text style={styles.totalEditValue}>
-              {total.toFixed(total % 1 === 0 ? 0 : 1)} {unit}
+              {total % 1 === 0 ? total.toString() : total.toFixed(2)} {unit}
             </Text>
             <TouchableOpacity
               style={styles.totalEditButton}
               onPress={() => {
                 const newTotal = total + (total * 0.1);
-                onOriginalQuantityChange(Math.round(newTotal * 10) / 10);
+                onOriginalQuantityChange(Math.round(newTotal * 100) / 100);
               }}
             >
               <Text style={styles.totalEditButtonText}>+10%</Text>

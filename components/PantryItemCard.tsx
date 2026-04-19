@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PantryItem, Unit } from '../lib/types';
+import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
 
 const UNIT_LABELS: Record<Unit, string> = {
   item: 'item',
@@ -18,11 +19,17 @@ const UNIT_LABELS: Record<Unit, string> = {
 
 function formatUnit(unit: string, quantity: number): string {
   const label = UNIT_LABELS[unit as Unit] || unit;
-  // Add plural 's' for items and cups when quantity > 1
   if (quantity !== 1 && (unit === 'item' || unit === 'cup')) {
     return label + 's';
   }
   return label;
+}
+
+interface ExpirationStatus {
+  color: string;
+  bgColor: string;
+  text: string;
+  icon: keyof typeof Ionicons.glyphMap;
 }
 
 interface PantryItemCardProps {
@@ -30,32 +37,32 @@ interface PantryItemCardProps {
   onPress: () => void;
 }
 
-export function PantryItemCard({ item, onPress }: PantryItemCardProps) {
-  const getExpirationStatus = () => {
+/**
+ * Brand-styled pantry item card component
+ */
+export function PantryItemCard({ item, onPress }: PantryItemCardProps): React.ReactElement {
+  const getExpirationStatus = (): ExpirationStatus | null => {
     if (!item.expiration_date) return null;
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const expDate = new Date(item.expiration_date);
     expDate.setHours(0, 0, 0, 0);
-
     const diffDays = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
     if (diffDays < 0) {
-      return { color: '#f44336', text: 'Expired', icon: 'alert-circle' as const };
+      return { color: colors.error, bgColor: colors.errorBg, text: 'Expired', icon: 'alert-circle' };
     } else if (diffDays === 0) {
-      return { color: '#f44336', text: 'Expires today', icon: 'alert-circle' as const };
+      return { color: colors.error, bgColor: colors.errorBg, text: 'Expires today', icon: 'alert-circle' };
     } else if (diffDays <= 3) {
-      return { color: '#FF9800', text: `${diffDays} day${diffDays > 1 ? 's' : ''} left`, icon: 'warning' as const };
+      return { color: colors.warning, bgColor: colors.warningBg, text: `${diffDays} day${diffDays > 1 ? 's' : ''} left`, icon: 'warning' };
     } else if (diffDays <= 7) {
-      return { color: '#FFC107', text: `${diffDays} days left`, icon: 'time' as const };
+      return { color: colors.warning, bgColor: colors.warningBg, text: `${diffDays} days left`, icon: 'time' };
     }
-    return { color: '#4CAF50', text: `${diffDays} days left`, icon: 'checkmark-circle' as const };
+    return { color: colors.success, bgColor: colors.successBg, text: `${diffDays} days left`, icon: 'checkmark-circle' };
   };
 
   const expirationStatus = getExpirationStatus();
 
-  const getLocationIcon = () => {
+  const getLocationIcon = (): keyof typeof Ionicons.glyphMap => {
     switch (item.location) {
       case 'fridge':
         return 'snow';
@@ -67,29 +74,31 @@ export function PantryItemCard({ item, onPress }: PantryItemCardProps) {
   };
 
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.container}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.name}, ${item.quantity} ${formatUnit(item.unit, item.quantity)}`}
+    >
       <View style={styles.imageContainer}>
         {item.image_url ? (
           <Image source={{ uri: item.image_url }} style={styles.image} />
         ) : (
           <View style={styles.placeholder}>
-            <Ionicons name="nutrition" size={32} color="#ccc" />
+            <Ionicons name="nutrition" size={32} color={colors.brownMuted} />
           </View>
         )}
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={1}>
-          {item.name}
-        </Text>
+        <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
         {item.brand && (
-          <Text style={styles.brand} numberOfLines={1}>
-            {item.brand}
-          </Text>
+          <Text style={styles.brand} numberOfLines={1}>{item.brand}</Text>
         )}
         <View style={styles.meta}>
           <View style={styles.badge}>
-            <Ionicons name={getLocationIcon()} size={14} color="#666" />
+            <Ionicons name={getLocationIcon()} size={14} color={colors.brownMuted} />
             <Text style={styles.badgeText}>
               {item.location.charAt(0).toUpperCase() + item.location.slice(1)}
             </Text>
@@ -103,7 +112,7 @@ export function PantryItemCard({ item, onPress }: PantryItemCardProps) {
       </View>
 
       {expirationStatus && (
-        <View style={[styles.expirationBadge, { backgroundColor: expirationStatus.color + '15' }]}>
+        <View style={[styles.expirationBadge, { backgroundColor: expirationStatus.bgColor }]}>
           <Ionicons name={expirationStatus.icon} size={14} color={expirationStatus.color} />
           <Text style={[styles.expirationText, { color: expirationStatus.color }]}>
             {expirationStatus.text}
@@ -111,7 +120,7 @@ export function PantryItemCard({ item, onPress }: PantryItemCardProps) {
         </View>
       )}
 
-      <Ionicons name="chevron-forward" size={20} color="#ccc" style={styles.chevron} />
+      <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} style={styles.chevron} />
     </TouchableOpacity>
   );
 }
@@ -120,23 +129,21 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    marginHorizontal: 16,
-    marginVertical: 4,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: colors.white,
+    padding: spacing.space4,
+    marginHorizontal: spacing.space4,
+    marginVertical: spacing.space2,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.brown,
+    ...shadows.sm,
   },
   imageContainer: {
     width: 56,
     height: 56,
-    borderRadius: 8,
+    borderRadius: borderRadius.sm,
     overflow: 'hidden',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.cream,
   },
   image: {
     width: '100%',
@@ -151,64 +158,71 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: spacing.space3,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textBase,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
   },
   brand: {
-    fontSize: 14,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textSm,
+    color: colors.brownMuted,
     marginTop: 2,
   },
   meta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
-    gap: 8,
+    marginTop: spacing.space2,
+    gap: spacing.space2,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
-    gap: 4,
+    backgroundColor: colors.cream,
+    paddingVertical: spacing.space1,
+    paddingHorizontal: spacing.space2,
+    borderRadius: borderRadius.sm,
+    gap: spacing.space1,
   },
   badgeText: {
-    fontSize: 12,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textXs,
+    color: colors.brownMuted,
   },
   quantityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+    backgroundColor: colors.peach,
+    paddingVertical: spacing.space1,
+    paddingHorizontal: spacing.space2,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.brown,
   },
   quantityText: {
-    fontSize: 12,
-    color: '#4CAF50',
-    fontWeight: '600',
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textXs,
+    color: colors.brown,
+    fontWeight: typography.fontSemibold,
   },
   expirationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    gap: 4,
-    marginRight: 8,
+    paddingVertical: spacing.space1,
+    paddingHorizontal: spacing.space2,
+    borderRadius: borderRadius.full,
+    gap: spacing.space1,
+    marginRight: spacing.space2,
   },
   expirationText: {
+    fontFamily: 'Nunito-Medium',
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: typography.fontMedium,
   },
   chevron: {
-    marginLeft: 4,
+    marginLeft: spacing.space1,
   },
 });

@@ -113,8 +113,14 @@ export function useImportedRecipes(): UseImportedRecipesReturn {
       setImportedRecipes((prev) => [savedRecipe, ...prev]);
       return savedRecipe;
     } catch (err) {
-      console.error('Error saving imported recipe:', err);
-      throw new Error('Failed to save recipe');
+      const error = err as { message?: string; code?: string; details?: string };
+      console.error('Error saving imported recipe:', {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        recipe: { title: recipe.title, hasImage: !!recipe.image_url },
+      });
+      throw new Error(error.message || 'Failed to save recipe');
     }
   };
 

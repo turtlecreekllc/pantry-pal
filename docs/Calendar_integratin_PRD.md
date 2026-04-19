@@ -6,20 +6,20 @@
 |-------|-------|
 | **Version** | 1.0 |
 | **Date** | December 27, 2025 |
-| **Author** | Pantry Pal Development Team |
+| **Author** | DinnerPlans Development Team |
 | **Status** | Draft |
 
 ---
 
 ## 1. Executive Summary
 
-This PRD outlines the implementation of calendar integration for Pantry Pal, enabling users to sync their meal plans with Google Calendar, Apple Calendar, Microsoft Outlook, and Yahoo Calendar. The integration provides bidirectional awareness between meal planning and existing calendar commitments, helping users schedule meals around their daily activities.
+This PRD outlines the implementation of calendar integration for DinnerPlans, enabling users to sync their meal plans with Google Calendar, Apple Calendar, Microsoft Outlook, and Yahoo Calendar. The integration provides bidirectional awareness between meal planning and existing calendar commitments, helping users schedule meals around their daily activities.
 
 ---
 
 ## 2. Problem Statement
 
-Users plan meals in Pantry Pal but manage their daily schedules in external calendar apps. This disconnect leads to meal plans that conflict with meetings, appointments, and events. Users need their meal schedule integrated with their primary calendar for a unified view of their day.
+Users plan meals in DinnerPlans but manage their daily schedules in external calendar apps. This disconnect leads to meal plans that conflict with meetings, appointments, and events. Users need their meal schedule integrated with their primary calendar for a unified view of their day.
 
 ---
 
@@ -138,7 +138,7 @@ CREATE TABLE calendar_sync_queue (
 1. Create calendar event when meal is planned
 2. Update event when meal time or recipe changes
 3. Delete event when meal is removed from plan
-4. Bidirectional sync: changes in calendar reflect in Pantry Pal
+4. Bidirectional sync: changes in calendar reflect in DinnerPlans
 5. Customizable event title format (e.g., "🍽️ Dinner: Pasta Carbonara")
 6. Event description includes: ingredients needed, prep time, recipe link
 
@@ -299,7 +299,7 @@ const createOutlookEvent = async (meal: MealPlan, accessToken: string) => {
 Yahoo requires CalDAV protocol with app-specific password:
 
 1. User generates app password in Yahoo Account Security
-2. Pantry Pal stores credentials securely (encrypted)
+2. DinnerPlans stores credentials securely (encrypted)
 3. Events synced via CalDAV PUT/DELETE requests
 4. Less reliable than other providers; recommend as fallback option
 
@@ -326,10 +326,10 @@ Yahoo requires CalDAV protocol with app-specific password:
 ### 7.3 Unified Calendar View
 
 1. New "Calendar" tab showing combined view
-2. Meal events in Pantry Pal colors
+2. Meal events in DinnerPlans colors
 3. External events in muted colors for context
 4. Tap external event to see details (read-only)
-5. Tap meal event to edit in Pantry Pal
+5. Tap meal event to edit in DinnerPlans
 
 ---
 

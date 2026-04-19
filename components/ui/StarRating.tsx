@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, spacing } from '../../lib/theme';
 
 interface StarRatingProps {
   rating: number | null;
@@ -10,16 +11,19 @@ interface StarRatingProps {
   readonly?: boolean;
 }
 
+/**
+ * Brand-styled star rating component
+ * Uses honey gold for filled stars by default
+ */
 export function StarRating({
   rating,
   onChange,
   size = 24,
-  color = '#FFC107',
+  color = colors.primary,
   readonly = false,
-}: StarRatingProps) {
-  const handlePress = (star: number) => {
+}: StarRatingProps): React.ReactElement {
+  const handlePress = (star: number): void => {
     if (!readonly && onChange) {
-      // If tapping the same star, clear the rating
       if (rating === star) {
         onChange(0);
       } else {
@@ -39,11 +43,14 @@ export function StarRating({
             disabled={readonly}
             style={styles.star}
             hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
+            accessibilityLabel={`${star} star${star > 1 ? 's' : ''}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: filled }}
           >
             <Ionicons
               name={filled ? 'star' : 'star-outline'}
               size={size}
-              color={filled ? color : '#ccc'}
+              color={filled ? color : colors.brownMuted}
             />
           </TouchableOpacity>
         );
@@ -58,6 +65,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   star: {
-    marginHorizontal: 2,
+    marginHorizontal: spacing.space1,
   },
 });

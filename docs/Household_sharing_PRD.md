@@ -6,14 +6,14 @@
 |-------|-------|
 | **Version** | 1.0 |
 | **Date** | December 27, 2025 |
-| **Author** | Pantry Pal Development Team |
+| **Author** | DinnerPlans Development Team |
 | **Status** | Draft |
 
 ---
 
 ## 1. Executive Summary
 
-This PRD outlines the implementation of household sharing functionality for Pantry Pal, enabling families and households to collaboratively manage their pantry inventory, meal plans, and shopping lists. The feature leverages Supabase's Row Level Security (RLS) and a multi-tenant architecture pattern to ensure secure data isolation while enabling seamless collaboration.
+This PRD outlines the implementation of household sharing functionality for DinnerPlans, enabling families and households to collaboratively manage their pantry inventory, meal plans, and shopping lists. The feature leverages Supabase's Row Level Security (RLS) and a multi-tenant architecture pattern to ensure secure data isolation while enabling seamless collaboration.
 
 ---
 

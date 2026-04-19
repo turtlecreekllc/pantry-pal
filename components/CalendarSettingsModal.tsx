@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   Switch,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCalendar } from '../hooks/useCalendar';
+import { WritableCalendar } from '../lib/calendarService';
 
 interface CalendarSettingsModalProps {
   visible: boolean;
@@ -20,27 +22,42 @@ export function CalendarSettingsModal({ visible, onClose }: CalendarSettingsModa
   const {
     settings,
     loading,
+    needsCalendarSelection,
+    availableCalendars,
     enableCalendar,
     disableCalendar,
+    selectCalendar,
+    cancelCalendarSelection,
     checkPermissions,
   } = useCalendar();
-  
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleToggleCalendar = async (value: boolean) => {
     setIsProcessing(true);
     try {
       if (value) {
-        const success = await enableCalendar();
-        if (!success) {
-            // Permission denied handled in hook
-        }
+        const result = await enableCalendar();
+        // result can be true, false, or 'needs_selection'
+        // 'needs_selection' will trigger the calendar picker UI via needsCalendarSelection state
       } else {
         await disableCalendar();
       }
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleSelectCalendar = async (calendar: WritableCalendar) => {
+    setIsProcessing(true);
+    try {
+      await selectCalendar(calendar);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancelSelection = () => {
+    cancelCalendarSelection();
   };
 
   return (
@@ -62,6 +79,39 @@ export function CalendarSettingsModal({ visible, onClose }: CalendarSettingsModa
           <View style={styles.content}>
             {loading ? (
               <ActivityIndicator size="large" color="#4CAF50" />
+            ) : needsCalendarSelection ? (
+              <>
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Select a Calendar</Text>
+                  <Text style={styles.description}>
+                    Your device doesn't support creating new calendars. Please select an existing calendar to use for meal plans:
+                  </Text>
+                </View>
+                <ScrollView style={styles.calendarList} showsVerticalScrollIndicator={false}>
+                  {availableCalendars.map((calendar) => (
+                    <TouchableOpacity
+                      key={calendar.id}
+                      style={styles.calendarItem}
+                      onPress={() => handleSelectCalendar(calendar)}
+                      disabled={isProcessing}
+                    >
+                      <View style={[styles.calendarColor, { backgroundColor: calendar.color }]} />
+                      <View style={styles.calendarInfo}>
+                        <Text style={styles.calendarName}>{calendar.title}</Text>
+                        <Text style={styles.calendarSource}>{calendar.source}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={handleCancelSelection}
+                  disabled={isProcessing}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <>
                 <View style={styles.section}>
@@ -84,11 +134,19 @@ export function CalendarSettingsModal({ visible, onClose }: CalendarSettingsModa
                     )}
                   </View>
                 </View>
-
+                {settings.enabled && settings.calendarName && (
+                  <View style={styles.section}>
+                    <View style={styles.infoBox}>
+                      <Ionicons name="calendar-outline" size={20} color="#4CAF50" />
+                      <Text style={styles.infoText}>
+                        Using: {settings.calendarName}
+                      </Text>
+                    </View>
+                  </View>
+                )}
                 {settings.enabled && (
                   <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Preferences</Text>
-                    
                     <View style={styles.row}>
                       <View style={styles.rowText}>
                         <Text style={styles.label}>Reminders</Text>
@@ -103,7 +161,6 @@ export function CalendarSettingsModal({ visible, onClose }: CalendarSettingsModa
                         thumbColor={settings.reminders ? '#4CAF50' : '#f5f5f5'}
                       />
                     </View>
-                     
                     {/* Placeholder for reminder time configuration */}
                     {settings.reminders && (
                         <View style={styles.infoBox}>
@@ -113,11 +170,12 @@ export function CalendarSettingsModal({ visible, onClose }: CalendarSettingsModa
                     )}
                   </View>
                 )}
-
                 <View style={styles.noteBox}>
                     <Ionicons name="information-circle-outline" size={20} color="#4CAF50" />
                     <Text style={styles.noteText}>
-                        Pantry Pal will create a dedicated calendar named "Pantry Pal Meals" to keep your schedule organized.
+                        {settings.enabled 
+                          ? 'Meal plans will be synced to your selected calendar.'
+                          : 'DinnerPlans will create a dedicated calendar or let you choose an existing one.'}
                     </Text>
                 </View>
               </>
@@ -226,6 +284,49 @@ const styles = StyleSheet.create({
       marginLeft: 12,
       flex: 1,
       lineHeight: 20
-  }
+  },
+  calendarList: {
+    maxHeight: 250,
+    marginBottom: 16,
+  },
+  calendarItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  calendarColor: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  calendarInfo: {
+    flex: 1,
+  },
+  calendarName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 2,
+  },
+  calendarSource: {
+    fontSize: 13,
+    color: '#888',
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
 });
 

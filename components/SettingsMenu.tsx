@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,34 +6,66 @@ import {
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Switch,
-  Platform,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
-import { useHealth } from '../context/HealthContext';
 import { useHouseholdContext } from '../context/HouseholdContext';
-import { CalendarSettingsModal } from './CalendarSettingsModal';
-import { HouseholdSettings } from './HouseholdSettings';
+import { HouseholdSwitcher } from './HouseholdSwitcher';
 import { LifetimeImpact } from './LifetimeImpact';
 import { AchievementsList } from './AchievementsList';
+import { colors, typography, spacing, borderRadius, shadows } from '../lib/theme';
 
 interface SettingsMenuProps {
   visible: boolean;
   onClose: () => void;
 }
 
-export function SettingsMenu({ visible, onClose }: SettingsMenuProps) {
-  const { user, signOut } = useAuth();
-  const { isHealthSyncEnabled, toggleHealthSync } = useHealth();
-  const { activeHousehold, hasHousehold, households } = useHouseholdContext();
-  const [calendarSettingsVisible, setCalendarSettingsVisible] = useState(false);
-  const [showHouseholdSettings, setShowHouseholdSettings] = useState(false);
-  const [showHouseholdSwitcher, setShowHouseholdSwitcher] = useState(false);
+/**
+ * Brand-styled settings menu modal
+ */
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+}
 
-  const handleSignOut = async () => {
+export function SettingsMenu({ visible, onClose }: SettingsMenuProps): React.ReactElement {
+  const router = useRouter();
+  const { user, signOut } = useAuth();
+  const { households } = useHouseholdContext();
+  const [showHouseholdSwitcher, setShowHouseholdSwitcher] = useState(false);
+  const [profile, setProfile] = useState<UserProfile>({
+    firstName: '',
+    lastName: '',
+    avatarUrl: null,
+  });
+
+  useEffect(() => {
+    if (user?.user_metadata) {
+      const metadata = user.user_metadata;
+      setProfile({
+        firstName: metadata.first_name || '',
+        lastName: metadata.last_name || '',
+        avatarUrl: metadata.avatar_url || null,
+      });
+    }
+  }, [user]);
+
+  const displayName = profile.firstName || profile.lastName
+    ? `${profile.firstName} ${profile.lastName}`.trim()
+    : null;
+
+  const handleSignOut = async (): Promise<void> => {
     onClose();
     await signOut();
+  };
+
+  const navigateTo = (path: string): void => {
+    onClose();
+    router.push(path as never);
   };
 
   return (
@@ -50,133 +82,146 @@ export function SettingsMenu({ visible, onClose }: SettingsMenuProps) {
               <View style={styles.menu}>
                 <View style={styles.header}>
                   <Text style={styles.headerTitle}>Settings</Text>
-                  <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close" size={24} color="#666" />
+                  <TouchableOpacity
+                    onPress={onClose}
+                    style={styles.closeButton}
+                    accessibilityLabel="Close settings"
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="close" size={24} color={colors.brownMuted} />
                   </TouchableOpacity>
                 </View>
 
-                {user && (
-                  <View style={styles.userSection}>
-                    <View style={styles.userAvatar}>
-                      <Ionicons name="person" size={24} color="#fff" />
-                    </View>
-                    <View style={styles.userInfo}>
-                      <Text style={styles.userEmail} numberOfLines={1}>
-                        {user.email}
-                      </Text>
-                      <Text style={styles.userLabel}>Signed in</Text>
-                    </View>
-                  </View>
-                )}
-
-                <View style={styles.menuItems}>
-                  <LifetimeImpact />
-                  <AchievementsList horizontal limit={3} />
-                  
-                  <TouchableOpacity style={styles.menuItem}>
-                    <Ionicons name="person-outline" size={22} color="#333" />
-                    <Text style={styles.menuItemText}>Account</Text>
-                    <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={styles.menuItem}
-                    onPress={() => setShowHouseholdSettings(true)}
-                  >
-                    <Ionicons name="home-outline" size={22} color="#333" />
-                    <View style={styles.menuItemContent}>
-                      <Text style={styles.menuItemText}>Household</Text>
-                      {hasHousehold ? (
-                        <Text style={styles.menuItemSubtext}>{activeHousehold?.name}</Text>
+                <ScrollView
+                  style={styles.scrollContent}
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                >
+                  {user && (
+                    <View style={styles.userSection}>
+                      {profile.avatarUrl ? (
+                        <Image source={{ uri: profile.avatarUrl }} style={styles.userAvatarImage} />
                       ) : (
-                        <Text style={styles.menuItemSubtext}>Create or join a household</Text>
+                        <View style={styles.userAvatar}>
+                          <Ionicons name="person" size={24} color={colors.brown} />
+                        </View>
                       )}
+                      <View style={styles.userInfo}>
+                        {displayName && (
+                          <Text style={styles.userName} numberOfLines={1}>{displayName}</Text>
+                        )}
+                        <Text style={[styles.userEmail, displayName && styles.userEmailSmall]} numberOfLines={1}>
+                          {user.email}
+                        </Text>
+                        {!displayName && (
+                          <Text style={styles.userLabel}>Signed in</Text>
+                        )}
+                      </View>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                  </TouchableOpacity>
-
-                  {households.length > 1 && (
-                    <TouchableOpacity 
-                      style={styles.menuItem}
-                      onPress={() => setShowHouseholdSwitcher(true)}
-                    >
-                      <Ionicons name="swap-horizontal-outline" size={22} color="#333" />
-                      <Text style={styles.menuItemText}>Switch Household</Text>
-                      <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                    </TouchableOpacity>
                   )}
 
-                  <TouchableOpacity 
-                    style={styles.menuItem}
-                    onPress={() => setCalendarSettingsVisible(true)}
-                  >
-                    <Ionicons name="calendar-outline" size={22} color="#333" />
-                    <Text style={styles.menuItemText}>Calendar Integration</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                </TouchableOpacity>
+                  <View style={styles.menuItems}>
+                    <LifetimeImpact />
+                    <AchievementsList horizontal limit={3} onSeeAll={onClose} />
 
-                {(Platform.OS === 'ios' || Platform.OS === 'android') && (
-                  <View style={styles.menuItem}>
-                    <Ionicons name="heart-outline" size={22} color="#333" />
-                    <View style={styles.menuItemContent}>
-                      <Text style={styles.menuItemText}>Sync to Health App</Text>
-                      <Text style={styles.menuItemSubtext}>Sync nutrition to Apple Health / Google Fit</Text>
-                    </View>
-                    <Switch
-                      value={isHealthSyncEnabled}
-                      onValueChange={toggleHealthSync}
-                      trackColor={{ false: '#e0e0e0', true: '#a5d6a7' }}
-                      thumbColor={isHealthSyncEnabled ? '#4CAF50' : '#f4f3f4'}
-                    />
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => navigateTo('/settings/meal-history')}
+                    >
+                      <Ionicons name="wallet-outline" size={22} color={colors.success} />
+                      <Text style={styles.menuItemText}>Meal History & Savings</Text>
+                      <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => navigateTo('/settings/profile')}
+                    >
+                      <Ionicons name="person-outline" size={22} color={colors.brown} />
+                      <Text style={styles.menuItemText}>Profile</Text>
+                      <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => navigateTo('/settings/household')}
+                    >
+                      <Ionicons name="home-outline" size={22} color={colors.brown} />
+                      <Text style={styles.menuItemText}>Household</Text>
+                      <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
+                    </TouchableOpacity>
+
+                    {households.length > 1 && (
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => setShowHouseholdSwitcher(true)}
+                      >
+                        <Ionicons name="swap-horizontal-outline" size={22} color={colors.brown} />
+                        <Text style={styles.menuItemText}>Switch Household</Text>
+                        <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => navigateTo('/settings/integrations')}
+                    >
+                      <Ionicons name="extension-puzzle-outline" size={22} color={colors.brown} />
+                      <Text style={styles.menuItemText}>Integrations</Text>
+                      <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => navigateTo('/settings/subscription')}
+                    >
+                      <Ionicons name="card-outline" size={22} color={colors.brown} />
+                      <Text style={styles.menuItemText}>Subscription</Text>
+                      <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => navigateTo('/settings/notifications')}
+                    >
+                      <Ionicons name="notifications-outline" size={22} color={colors.brown} />
+                      <Text style={styles.menuItemText}>Notifications</Text>
+                      <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => navigateTo('/settings/help')}
+                    >
+                      <Ionicons name="help-circle-outline" size={22} color={colors.brown} />
+                      <Text style={styles.menuItemText}>Help & Support</Text>
+                      <Ionicons name="chevron-forward" size={20} color={colors.brownMuted} />
+                    </TouchableOpacity>
+
+                    <View style={styles.divider} />
+
+                    <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
+                      <Ionicons name="log-out-outline" size={22} color={colors.error} />
+                      <Text style={[styles.menuItemText, styles.logoutText]}>Sign Out</Text>
+                    </TouchableOpacity>
                   </View>
-                )}
 
-                <TouchableOpacity style={styles.menuItem}>
-                    <Ionicons name="card-outline" size={22} color="#333" />
-                  <Text style={styles.menuItemText}>Subscription</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem}>
-                  <Ionicons name="notifications-outline" size={22} color="#333" />
-                  <Text style={styles.menuItemText}>Notifications</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem}>
-                  <Ionicons name="help-circle-outline" size={22} color="#333" />
-                  <Text style={styles.menuItemText}>Help & Support</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                </TouchableOpacity>
-
-                <View style={styles.divider} />
-
-                <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
-                  <Ionicons name="log-out-outline" size={22} color="#f44336" />
-                  <Text style={[styles.menuItemText, styles.logoutText]}>Sign Out</Text>
-                </TouchableOpacity>
+                  <Text style={styles.version}>Version 1.3.1</Text>
+                </ScrollView>
               </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
-              <Text style={styles.version}>Version 1.3.1</Text>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-    
-    <CalendarSettingsModal
-        visible={calendarSettingsVisible}
-        onClose={() => setCalendarSettingsVisible(false)}
-    />
-    <HouseholdSettings
-        visible={showHouseholdSettings}
-        onClose={() => setShowHouseholdSettings(false)}
-    />
-    <HouseholdSwitcher
+      <HouseholdSwitcher
         visible={showHouseholdSwitcher}
         onClose={() => setShowHouseholdSwitcher(false)}
-        onCreateNew={() => setShowHouseholdSettings(true)}
-    />
+        onCreateNew={() => {
+          setShowHouseholdSwitcher(false);
+          navigateTo('/settings/household');
+        }}
+      />
     </>
   );
 }
@@ -184,30 +229,35 @@ export function SettingsMenu({ visible, onClose }: SettingsMenuProps) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(61, 35, 20, 0.5)',
     justifyContent: 'flex-start',
   },
   menu: {
-    backgroundColor: '#fff',
-    marginTop: 100,
-    marginHorizontal: 16,
-    borderRadius: 16,
+    backgroundColor: colors.white,
+    marginTop: 60,
+    marginHorizontal: spacing.space4,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.brown,
     overflow: 'hidden',
-    maxHeight: '70%',
+    maxHeight: '85%',
+    ...shadows.lg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: spacing.space4,
+    paddingVertical: spacing.space4,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.brown,
+    backgroundColor: colors.primary,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontFamily: 'Quicksand-Bold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontBold,
+    color: colors.brown,
   },
   closeButton: {
     width: 32,
@@ -215,71 +265,91 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   userSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f5f5f5',
+    padding: spacing.space4,
+    backgroundColor: colors.cream,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.creamDark,
   },
   userAvatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#4CAF50',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.brown,
+  },
+  userAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.full,
+    borderWidth: 2,
+    borderColor: colors.brown,
   },
   userInfo: {
-    marginLeft: 12,
+    marginLeft: spacing.space3,
     flex: 1,
   },
+  userName: {
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
+  },
   userEmail: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textBase,
+    fontWeight: typography.fontMedium,
+    color: colors.brown,
+  },
+  userEmailSmall: {
+    fontSize: typography.textSm,
+    color: colors.brownMuted,
+    marginTop: 2,
   },
   userLabel: {
-    fontSize: 13,
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textSm,
+    color: colors.brownMuted,
     marginTop: 2,
   },
   menuItems: {
-    paddingVertical: 8,
+    paddingVertical: spacing.space3,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: spacing.space4,
+    paddingVertical: spacing.space4,
   },
   menuItemText: {
     flex: 1,
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 12,
-  },
-  menuItemContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  menuItemSubtext: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
+    fontFamily: 'Nunito-Medium',
+    fontSize: typography.textBase,
+    color: colors.brown,
+    marginLeft: spacing.space3,
   },
   logoutText: {
-    color: '#f44336',
+    color: colors.error,
   },
   divider: {
-    height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 8,
-    marginHorizontal: 16,
+    height: 2,
+    backgroundColor: colors.creamDark,
+    marginVertical: spacing.space2,
+    marginHorizontal: spacing.space4,
   },
   version: {
+    fontFamily: 'Nunito-Regular',
     textAlign: 'center',
-    fontSize: 12,
-    color: '#999',
-    paddingVertical: 16,
+    fontSize: typography.textXs,
+    color: colors.brownMuted,
+    paddingVertical: spacing.space4,
   },
 });

@@ -180,10 +180,16 @@ export default function CookbookDetailScreen() {
       onLongPress={() => handleRemoveRecipe(item)}
       activeOpacity={0.8}
     >
-      <Image
-        source={{ uri: item.recipe_data.thumbnail }}
-        style={styles.recipeImage}
-      />
+      {item.recipe_data.thumbnail ? (
+        <Image
+          source={{ uri: item.recipe_data.thumbnail }}
+          style={styles.recipeImage}
+        />
+      ) : (
+        <View style={[styles.recipeImage, styles.recipeImagePlaceholder]}>
+          <Ionicons name="restaurant-outline" size={48} color="#999" />
+        </View>
+      )}
       <View style={styles.recipeOverlay}>
         <Text style={styles.recipeName} numberOfLines={2}>
           {item.recipe_data.name}
@@ -382,6 +388,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  recipeImagePlaceholder: {
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   recipeOverlay: {
     position: 'absolute',

@@ -51,6 +51,37 @@ const COST_ESTIMATES: Record<string, number> = {
   'tsp': 5,
 };
 
+// Achievement definitions for onboarding
+export const ONBOARDING_ACHIEVEMENTS = {
+  setup_complete: {
+    key: 'setup_complete',
+    name: 'Getting Started',
+    description: 'Complete your profile setup',
+    icon: '🎯',
+    category: 'getting_started',
+    threshold: 1,
+    tokenReward: 50, // Bonus tokens for completing onboarding
+  },
+  first_pantry_item: {
+    key: 'first_pantry_item',
+    name: 'Pantry Pioneer',
+    description: 'Add your first pantry item',
+    icon: '🥫',
+    category: 'getting_started',
+    threshold: 1,
+    tokenReward: 10,
+  },
+  pantry_pro: {
+    key: 'pantry_pro',
+    name: 'Pantry Pro',
+    description: 'Add 10 items to your pantry',
+    icon: '📦',
+    category: 'getting_started',
+    threshold: 10,
+    tokenReward: 25,
+  },
+} as const;
+
 export const gamificationService = {
   /**
    * Calculate estimated weight in grams
@@ -274,6 +305,107 @@ export const gamificationService = {
         });
       }
     }
-  }
+  },
+
+  /**
+   * Award onboarding completion achievement and bonus tokens
+   */
+  async awardOnboardingComplete(userId: string): Promise<{ success: boolean; tokensAwarded?: number }> {
+    try {
+      const achievement = ONBOARDING_ACHIEVEMENTS.setup_complete;
+      
+      // Check if already awarded
+      const { data: existing } = await supabase
+        .from('user_achievements')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('achievement_id', achievement.key)
+        .single();
+      
+      if (existing) {
+        console.log('[Gamification] Onboarding achievement already awarded');
+        return { success: true, tokensAwarded: 0 };
+      }
+
+      // Award the achievement
+      const { error: achievementError } = await supabase
+        .from('user_achievements')
+        .insert({
+          user_id: userId,
+          achievement_id: achievement.key,
+          progress: 1,
+          is_seen: false,
+        });
+
+      if (achievementError) {
+        console.warn('[Gamification] Error awarding achievement:', achievementError);
+        // Continue anyway to try to award tokens
+      }
+
+      // Award bonus tokens
+      const { error: tokenError } = await supabase
+        .from('token_balances')
+        .upsert(
+          {
+            user_id: userId,
+            purchased_tokens: achievement.tokenReward,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (tokenError) {
+        console.warn('[Gamification] Error awarding tokens:', tokenError);
+        // Try alternative method - add to existing balance
+        const { data: balance } = await supabase
+          .from('token_balances')
+          .select('purchased_tokens')
+          .eq('user_id', userId)
+          .single();
+
+        if (balance) {
+          await supabase
+            .from('token_balances')
+            .update({
+              purchased_tokens: (balance.purchased_tokens || 0) + achievement.tokenReward,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId);
+        }
+      }
+
+      console.log(`[Gamification] Awarded ${achievement.tokenReward} tokens for onboarding completion`);
+      return { success: true, tokensAwarded: achievement.tokenReward };
+    } catch (error) {
+      console.error('[Gamification] Error in awardOnboardingComplete:', error);
+      return { success: false };
+    }
+  },
+
+  /**
+   * Get user's achievement progress for display
+   */
+  async getUserAchievements(userId: string): Promise<{
+    unlocked: string[];
+    progress: Record<string, number>;
+  }> {
+    try {
+      const { data: achievements } = await supabase
+        .from('user_achievements')
+        .select('achievement_id, progress')
+        .eq('user_id', userId);
+
+      const unlocked = achievements?.map(a => a.achievement_id) || [];
+      const progress: Record<string, number> = {};
+      achievements?.forEach(a => {
+        progress[a.achievement_id] = a.progress;
+      });
+
+      return { unlocked, progress };
+    } catch (error) {
+      console.error('[Gamification] Error fetching achievements:', error);
+      return { unlocked: [], progress: {} };
+    }
+  },
 };
 

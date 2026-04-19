@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Achievement, UserAchievement } from '../lib/types';
@@ -8,9 +9,11 @@ import { Achievement, UserAchievement } from '../lib/types';
 interface AchievementsListProps {
   limit?: number;
   horizontal?: boolean;
+  onSeeAll?: () => void;
 }
 
-export function AchievementsList({ limit, horizontal = false }: AchievementsListProps) {
+export function AchievementsList({ limit, horizontal = false, onSeeAll }: AchievementsListProps) {
+  const router = useRouter();
   const { user } = useAuth();
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [userAchievements, setUserAchievements] = useState<Set<string>>(new Set());
@@ -71,13 +74,31 @@ export function AchievementsList({ limit, horizontal = false }: AchievementsList
     );
   };
 
+  const handleSeeAll = () => {
+    if (onSeeAll) {
+      onSeeAll();
+    }
+    router.push('/settings/achievements');
+  };
+
   if (loading) return null;
 
   const displayData = limit ? achievements.slice(0, limit) : achievements;
+  const unlockedCount = userAchievements.size;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Achievements</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.sectionTitle}>Achievements</Text>
+        {limit && (
+          <TouchableOpacity onPress={handleSeeAll} style={styles.seeAllButton}>
+            <Text style={styles.seeAllText}>
+              {unlockedCount}/{achievements.length} • See All
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color="#4CAF50" />
+          </TouchableOpacity>
+        )}
+      </View>
       <FlatList
         data={displayData}
         renderItem={renderItem}
@@ -94,12 +115,26 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 12,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 12,
-    marginLeft: 16,
     color: '#333',
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '500',
   },
   listContent: {
     paddingHorizontal: 16,

@@ -70,7 +70,7 @@ export function InviteModal({ visible, onClose }: InviteModalProps) {
     if (!inviteLink) return;
     try {
       await Share.share({
-        message: `Join my household on Pantry Pal! ${inviteLink}`,
+        message: `Join my household on DinnerPlans! ${inviteLink}`,
         url: Platform.OS === 'ios' ? inviteLink : undefined,
       });
     } catch {

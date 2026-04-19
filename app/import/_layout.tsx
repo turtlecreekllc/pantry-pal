@@ -1,12 +1,23 @@
 import { Stack } from 'expo-router';
+import { colors, typography } from '../../lib/theme';
 
-export default function ImportLayout() {
+export default function ImportLayout(): React.ReactElement {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: '#4CAF50' },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '600' },
+        headerStyle: {
+          backgroundColor: colors.primary,
+        },
+        headerTintColor: colors.brown,
+        headerTitleStyle: {
+          fontFamily: 'Quicksand-Bold',
+          fontWeight: typography.fontBold,
+          fontSize: typography.textLg,
+          color: colors.brown,
+        },
+        headerShadowVisible: false,
+        headerBackTitle: '',
+        headerBackVisible: true,
       }}
     >
       <Stack.Screen

@@ -4,6 +4,10 @@ import { MealPlan, MealType, IngredientDeduction, RecipeSource } from '../lib/ty
 import { useAuth } from '../context/AuthContext';
 import { useHouseholdContext } from '../context/HouseholdContext';
 import { logActivity } from '../lib/householdService';
+import {
+  scheduleMealNotification,
+  cancelMealNotification,
+} from '../lib/notificationScheduler';
 
 interface AddMealPlanOptions {
   deductions?: IngredientDeduction[];
@@ -150,6 +154,13 @@ export function useMealPlans(options: UseMealPlansOptions = {}): UseMealPlansRet
           actionData: { recipe_name: plan.recipe_name, date: plan.date, meal_type: plan.meal_type },
         });
       }
+      scheduleMealNotification({
+        userId: user.id,
+        mealPlanId: data.id,
+        recipeName: plan.recipe_name,
+        mealDate: plan.date,
+        mealType: plan.meal_type,
+      });
       return data.id;
     } catch (err) {
       console.error('Error adding meal plan:', err);
@@ -205,6 +216,7 @@ export function useMealPlans(options: UseMealPlansOptions = {}): UseMealPlansRet
       const { error: deleteError } = await query;
       if (deleteError) throw deleteError;
       setMealPlans((prev) => prev.filter((m) => m.id !== id));
+      cancelMealNotification(id);
     } catch (err) {
       console.error('Error deleting meal plan:', err);
       throw err;

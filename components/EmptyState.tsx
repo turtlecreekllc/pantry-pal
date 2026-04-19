@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
+import { colors, typography, spacing } from '../lib/theme';
 
 interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -11,16 +12,22 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
+/**
+ * Brand-styled empty state component
+ * Displays when there's no content to show
+ */
 export function EmptyState({
   icon = 'file-tray-outline',
   title,
   description,
   actionLabel,
   onAction,
-}: EmptyStateProps) {
+}: EmptyStateProps): React.ReactElement {
   return (
     <View style={styles.container}>
-      <Ionicons name={icon} size={64} color="#ccc" />
+      <View style={styles.iconContainer}>
+        <Ionicons name={icon} size={64} color={colors.brownMuted} />
+      </View>
       <Text style={styles.title}>{title}</Text>
       {description && <Text style={styles.description}>{description}</Text>}
       {actionLabel && onAction && (
@@ -39,24 +46,35 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
+    padding: spacing.space8,
+  },
+  iconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.peachLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.space4,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 16,
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.textXl,
+    fontWeight: typography.fontSemibold,
+    color: colors.brown,
+    marginTop: spacing.space4,
     textAlign: 'center',
   },
   description: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textSm,
+    color: colors.brownMuted,
+    marginTop: spacing.space2,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: typography.textSm * 1.5,
   },
   button: {
-    marginTop: 24,
+    marginTop: spacing.space6,
     minWidth: 160,
   },
 });
