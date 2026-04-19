@@ -36,7 +36,7 @@
         "NSFaceIDUsageDescription": "Dinner Plans uses Face ID for quick and secure login",
         "SKAdNetworkItems": []
       },
-      "buildNumber": "79",
+      "buildNumber": "80",
       "splash": {
         "backgroundColor": "#4CAF50",
         "resizeMode": "contain"
