@@ -254,12 +254,24 @@ export function useSubscription(): UseSubscriptionReturn {
           successUrl,
           cancelUrl,
         });
+        if (result.error) {
+          const { Alert } = await import('react-native');
+          Alert.alert(
+            'Unable to Open Checkout',
+            'Subscription management is not available at this time. Please contact support.',
+            [{ text: 'OK' }]
+          );
+          console.warn('[useSubscription] checkout error:', result.error);
+          return;
+        }
         if (result.url) {
           // Open in browser using expo-web-browser
           const { openBrowserAsync } = await import('expo-web-browser');
           await openBrowserAsync(result.url);
         }
       } catch (err) {
+        const { Alert } = await import('react-native');
+        Alert.alert('Error', 'Unable to open checkout. Please try again.');
         console.warn('[useSubscription] openCheckout error:', err);
       }
     },

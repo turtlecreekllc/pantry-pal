@@ -14,6 +14,7 @@ import {
   Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useHouseholdContext } from '../../context/HouseholdContext';
 import { supabase } from '../../lib/supabase';
 import { HouseholdMemberProfile } from '../../lib/tonightService';
@@ -311,6 +312,7 @@ function MemberEditModal({ visible, profile, onSave, onClose, isSaving }: EditMo
 // ─── main screen ──────────────────────────────────────────────────────────────
 
 export default function DinnerRosterScreen(): React.ReactElement {
+  const router = useRouter();
   const { activeHousehold } = useHouseholdContext();
   const [members, setMembers] = useState<HouseholdMemberProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -424,8 +426,15 @@ export default function DinnerRosterScreen(): React.ReactElement {
         <Ionicons name="home-outline" size={48} color={colors.brownMuted} />
         <Text style={styles.noHouseholdText}>No active household</Text>
         <Text style={styles.noHouseholdHint}>
-          Create a household first in Household Settings.
+          Create a household first to manage your dinner roster.
         </Text>
+        <TouchableOpacity
+          style={styles.householdButton}
+          onPress={() => router.push('/settings/household')}
+        >
+          <Ionicons name="people-outline" size={18} color={colors.white} />
+          <Text style={styles.householdButtonText}>Set Up Household</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -549,6 +558,22 @@ const styles = StyleSheet.create({
     fontSize: typography.textBase,
     color: colors.brownMuted,
     textAlign: 'center',
+    marginBottom: spacing.space4,
+  },
+  householdButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.space2,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.space3,
+    paddingHorizontal: spacing.space5,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.space2,
+  },
+  householdButtonText: {
+    fontFamily: 'Nunito-SemiBold',
+    fontSize: typography.textBase,
+    color: colors.white,
   },
   infoCard: {
     flexDirection: 'row',

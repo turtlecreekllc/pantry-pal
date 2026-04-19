@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initHealthService } from '../lib/healthService';
 
@@ -15,7 +16,7 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // loadSettings(); // Disabled automatic init to prevent crashes
+    loadSettings();
   }, []);
 
   const loadSettings = async () => {
@@ -46,8 +47,11 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
           setIsInitialized(true);
           await AsyncStorage.setItem('pantry_pal_health_sync_enabled', 'true');
         } else {
-          // Permission denied or error
-          console.warn('Health service initialization failed');
+          Alert.alert(
+            'Health Access Denied',
+            'Please enable Health permissions for Dinner Plans in your device Settings.',
+            [{ text: 'OK' }]
+          );
         }
       } else {
         // Turning OFF

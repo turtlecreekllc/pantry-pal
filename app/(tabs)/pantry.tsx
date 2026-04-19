@@ -50,10 +50,10 @@ export default function PantryScreen(): React.ReactElement {
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Refresh pantry when screen comes into focus (after returning from item edit, photo scan, etc.)
+  // Silently refresh on focus so the skeleton doesn't flash on every navigation.
   useFocusEffect(
     useCallback(() => {
-      refreshPantry();
+      refreshPantry(true);
     }, [refreshPantry])
   );
 
