@@ -1,0 +1,80 @@
+/**
+ * Resume Subscription
+ * Supabase Edge Function to resume a canceled Stripe subscription
+ */
+
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import Stripe from 'https://esm.sh/stripe@13.10.0';
+
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+  apiVersion: '2023-10-16',
+  httpClient: Stripe.createFetchHttpClient(),
+});
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req: Request) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+  try {
+    const { userId } = await req.json();
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: 'Missing userId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Get subscription ID
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('stripe_subscription_id, cancel_at_period_end')
+      .eq('user_id', userId)
+      .single();
+    if (!subscription?.stripe_subscription_id) {
+      return new Response(
+        JSON.stringify({ error: 'No subscription found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!subscription.cancel_at_period_end) {
+      return new Response(
+        JSON.stringify({ error: 'Subscription is not scheduled for cancellation' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // Resume subscription
+    await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+      cancel_at_period_end: false,
+    });
+    // Update local record
+    await supabase
+      .from('subscriptions')
+      .update({
+        cancel_at_period_end: false,
+        canceled_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (err) {
+    console.error('Error resuming subscription:', err);
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+

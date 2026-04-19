@@ -727,3 +727,205 @@ export interface UserChallenge {
   completed_at?: string;
   challenge?: Challenge; // For joined queries
 }
+
+// ============================================================================
+// Subscription / IAP config
+// App Store Connect product IDs follow "<bundle>.<category>.<variant>".
+// Bundle id is com.turtlecreekllc.dinnerplans (see app.json).
+// ============================================================================
+
+export const APPLE_IAP_CONFIG = {
+  products: {
+    premium_monthly: 'com.turtlecreekllc.dinnerplans.individual.monthly',
+    premium_annual: 'com.turtlecreekllc.dinnerplans.individual.annual',
+    family_monthly: 'com.turtlecreekllc.dinnerplans.family.monthly',
+    family_annual: 'com.turtlecreekllc.dinnerplans.family.annual',
+    tokens_50: 'com.turtlecreekllc.dinnerplans.tokens.50',
+    tokens_150: 'com.turtlecreekllc.dinnerplans.tokens.150',
+    tokens_400: 'com.turtlecreekllc.dinnerplans.tokens.400',
+  },
+} as const;
+
+export interface PlanPrice {
+  price: number; // cents
+  displayPrice: string;
+  monthlyEquivalent: string;
+  tokens: number;
+  rolloverEnabled: boolean;
+  maxRollover: number;
+}
+
+export const PLAN_PRICING: Record<string, PlanPrice> = {
+  premium_monthly: {
+    price: 999,
+    displayPrice: '$9.99',
+    monthlyEquivalent: '$9.99',
+    tokens: 100,
+    rolloverEnabled: false,
+    maxRollover: 0,
+  },
+  premium_annual: {
+    price: 9900,
+    displayPrice: '$99',
+    monthlyEquivalent: '$8.25',
+    tokens: 100,
+    rolloverEnabled: true,
+    maxRollover: 50,
+  },
+  individual_monthly: {
+    price: 999,
+    displayPrice: '$9.99',
+    monthlyEquivalent: '$9.99',
+    tokens: 100,
+    rolloverEnabled: false,
+    maxRollover: 0,
+  },
+  individual_annual: {
+    price: 9900,
+    displayPrice: '$99',
+    monthlyEquivalent: '$8.25',
+    tokens: 100,
+    rolloverEnabled: true,
+    maxRollover: 50,
+  },
+  family_monthly: {
+    price: 1499,
+    displayPrice: '$14.99',
+    monthlyEquivalent: '$14.99',
+    tokens: 200,
+    rolloverEnabled: false,
+    maxRollover: 0,
+  },
+  family_annual: {
+    price: 14900,
+    displayPrice: '$149',
+    monthlyEquivalent: '$12.42',
+    tokens: 200,
+    rolloverEnabled: true,
+    maxRollover: 100,
+  },
+};
+
+export interface TokenBucket {
+  size: 50 | 150 | 400;
+  productId: string;
+  price: number; // cents
+  displayPrice: string;
+}
+
+export const TOKEN_BUCKETS: TokenBucket[] = [
+  { size: 50, productId: APPLE_IAP_CONFIG.products.tokens_50, price: 299, displayPrice: '$2.99' },
+  { size: 150, productId: APPLE_IAP_CONFIG.products.tokens_150, price: 799, displayPrice: '$7.99' },
+  { size: 400, productId: APPLE_IAP_CONFIG.products.tokens_400, price: 1999, displayPrice: '$19.99' },
+];
+
+export const FREE_TIER_LIMITS = {
+  tokensPerMonth: 25,
+  recipesPerDay: 5,
+  householdMembers: 1,
+} as const;
+
+export const FEATURE_ACCESS = {
+  tonightSuggestions: ['individual', 'family', 'trial'],
+  unlimitedRecipes: ['individual', 'family'],
+  householdSharing: ['family'],
+} as const;
+
+export const APPLE_DISCLOSURE_TEXT = {
+  externalPayment:
+    'This app offers an external payment option. Payments processed outside the App Store are not subject to Apple review and refund policies.',
+  termsLink: 'https://dinnerplans.ai/terms',
+  privacyLink: 'https://dinnerplans.ai/privacy',
+} as const;
+
+// Apple storefront country codes considered "US" for paywall routing.
+// Accepts ISO-3 (USA), ISO-2 (US), and case-insensitive variants.
+export const US_STOREFRONTS: readonly string[] = ['USA', 'US'] as const;
+
+export type SubscriptionTier =
+  | 'free'
+  | 'trial'
+  | 'individual_monthly'
+  | 'individual_annual'
+  | 'family_monthly'
+  | 'family_annual';
+
+export type TierCategory = 'free' | 'trial' | 'individual' | 'family';
+
+export function getTierCategory(tier: SubscriptionTier): TierCategory {
+  if (tier === 'free') return 'free';
+  if (tier === 'trial') return 'trial';
+  if (tier.startsWith('family')) return 'family';
+  return 'individual';
+}
+
+export function hasIndividualAccess(tier: SubscriptionTier): boolean {
+  const cat = getTierCategory(tier);
+  return cat === 'individual' || cat === 'family' || cat === 'trial';
+}
+
+export function hasFamilyAccess(tier: SubscriptionTier): boolean {
+  return getTierCategory(tier) === 'family';
+}
+
+export function isTrialTier(tier: SubscriptionTier): boolean {
+  return tier === 'trial';
+}
+
+export type PaymentProvider = 'apple' | 'stripe';
+
+export interface PaywallConfig {
+  showStripeOption: boolean;
+  showAppleOption: boolean;
+  recommendedProvider: PaymentProvider;
+  stripeDisclosure: string | null;
+  appleDisclosure: string | null;
+  storefront: string | null;
+  isUSUser: boolean;
+}
+
+export interface PurchaseResult {
+  success: boolean;
+  productId?: string;
+  transactionId?: string;
+  error?: string;
+}
+
+export interface EntitlementResult {
+  hasAccess: boolean;
+  tier: SubscriptionTier;
+  expiresAt?: string | null;
+}
+
+export interface SubscriptionWithApple {
+  tier: SubscriptionTier;
+  provider: PaymentProvider;
+  productId: string | null;
+  status: 'active' | 'expired' | 'trialing' | 'cancelled';
+  currentPeriodEnd: string | null;
+}
+
+export interface SubscriptionState {
+  tier: SubscriptionTier;
+  isActive: boolean;
+  isTrialing: boolean;
+  expiresAt: string | null;
+  tokenBalance: number;
+}
+
+export interface FeatureAccessResult {
+  hasAccess: boolean;
+  reason?: string;
+}
+
+export interface CreateCheckoutParams {
+  userId: string;
+  tier: SubscriptionTier;
+  provider: PaymentProvider;
+}
+
+export interface CreateTokenPurchaseParams {
+  userId: string;
+  bucketSize: 50 | 150 | 400;
+  provider: PaymentProvider;
+}
