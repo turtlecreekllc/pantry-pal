@@ -32,6 +32,15 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+
+# GCP service account credentials
+pantry-pal-*.json
+*-service-account*.json
+*-credentials*.json
+
+# Claude Code local state
+.claude/
 
 # typescript
 *.tsbuildinfo
