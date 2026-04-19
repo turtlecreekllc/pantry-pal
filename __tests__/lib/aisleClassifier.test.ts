@@ -32,21 +32,19 @@ describe('aisleClassifier', () => {
     });
 
     it('classifies frozen items', () => {
-      // "frozen" prefix is not in Produce/Dairy/Meat/Bakery keywords, so Frozen wins
       expect(classifyAisle('frozen pizza')).toBe('Frozen');
       expect(classifyAisle('popsicle')).toBe('Frozen');
       expect(classifyAisle('gelato')).toBe('Frozen');
+      expect(classifyAisle('ice cream')).toBe('Frozen');
     });
 
     it('classifies canned goods', () => {
-      // Use items whose keywords only appear in Canned Goods (not in Produce/Dairy/Meat first)
       expect(classifyAisle('canned goods item')).toBe('Canned Goods');
       expect(classifyAisle('bouillon cube')).toBe('Canned Goods');
-      // NOTE: keyword ordering bugs — these match earlier aisles than intended:
-      //   'canned salmon' → 'salmon' matches Meat & Seafood
-      //   'canned bean' → 'bean' matches Produce
-      //   'coconut milk' → 'milk' matches Dairy
       expect(classifyAisle('vegetable stock')).toBe('Canned Goods');
+      expect(classifyAisle('canned salmon')).toBe('Canned Goods');
+      expect(classifyAisle('canned bean')).toBe('Canned Goods');
+      expect(classifyAisle('coconut milk')).toBe('Canned Goods');
     });
 
     it('classifies pasta and grains', () => {
@@ -64,7 +62,6 @@ describe('aisleClassifier', () => {
 
     it('classifies condiments', () => {
       expect(classifyAisle('ketchup')).toBe('Condiments');
-      // Note: "olive" is in Canned Goods, "oil" is in Condiments — 'olive oil' hits Canned Goods first
       expect(classifyAisle('mayonnaise')).toBe('Condiments');
       expect(classifyAisle('soy sauce')).toBe('Condiments');
     });
@@ -72,17 +69,17 @@ describe('aisleClassifier', () => {
     it('classifies beverages', () => {
       expect(classifyAisle('coffee')).toBe('Beverages');
       expect(classifyAisle('soda')).toBe('Beverages');
-      // Note: 'wine' is Beverages but 'orange juice' hits Produce first (orange keyword)
       expect(classifyAisle('sparkling water')).toBe('Beverages');
+      expect(classifyAisle('orange juice')).toBe('Beverages');
     });
 
     it('classifies snacks', () => {
       expect(classifyAisle('chips')).toBe('Snacks');
-      // NOTE: 'peanut' → 'pea' matches Produce first (keyword ordering bug)
-      // NOTE: 'popcorn' → 'corn' matches Produce first (keyword ordering bug)
-      // NOTE: 'granola bar' → 'granola' matches Pasta & Grains first (keyword ordering bug)
       expect(classifyAisle('pretzel')).toBe('Snacks');
       expect(classifyAisle('protein bar')).toBe('Snacks');
+      expect(classifyAisle('peanut')).toBe('Snacks');
+      expect(classifyAisle('popcorn')).toBe('Snacks');
+      expect(classifyAisle('granola bar')).toBe('Snacks');
     });
 
     it('returns Other for unrecognized items', () => {
