@@ -109,20 +109,47 @@ const AISLE_KEYWORDS: Record<Aisle, string[]> = {
 };
 
 /**
- * Classify an ingredient into a store aisle
+ * Classify an ingredient into a store aisle.
+ *
+ * Strategy: build a flat list of (keyword → aisle) pairs sorted longest-first,
+ * then scan with whole-word regex. Longest keywords win globally, so compound
+ * phrases like "ice cream", "canned salmon", "coconut milk", and "granola bar"
+ * are matched as a unit before any of their constituent single words.
+ * Falls back to substring matching for keywords that appear alone without
+ * natural word boundaries (e.g. bare abbreviations).
  */
+
+// Flat sorted lookup built once at module load
+type KeywordEntry = { keyword: string; aisle: Aisle; regex: RegExp };
+
+const SORTED_KEYWORDS: KeywordEntry[] = (() => {
+  const entries: KeywordEntry[] = [];
+  for (const aisle of AISLES) {
+    if (aisle === 'Other') continue;
+    for (const kw of AISLE_KEYWORDS[aisle]) {
+      const lower = kw.toLowerCase();
+      const escaped = lower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      entries.push({ keyword: lower, aisle, regex: new RegExp(`\\b${escaped}\\b`) });
+    }
+  }
+  // Longest keyword first so multi-word phrases beat constituent words
+  return entries.sort((a, b) => b.keyword.length - a.keyword.length);
+})();
+
 export function classifyAisle(ingredientName: string): Aisle {
   const normalized = ingredientName.toLowerCase().trim();
 
-  // Check each aisle's keywords
-  for (const aisle of AISLES) {
-    if (aisle === 'Other') continue;
+  // Pass 1: whole-word regex (prevents "pea" in "peanut", "corn" in "popcorn", etc.)
+  for (const entry of SORTED_KEYWORDS) {
+    if (entry.regex.test(normalized)) {
+      return entry.aisle;
+    }
+  }
 
-    const keywords = AISLE_KEYWORDS[aisle];
-    for (const keyword of keywords) {
-      if (normalized.includes(keyword.toLowerCase())) {
-        return aisle;
-      }
+  // Pass 2: substring fallback (catches keywords that legitimately appear mid-word)
+  for (const entry of SORTED_KEYWORDS) {
+    if (normalized.includes(entry.keyword)) {
+      return entry.aisle;
     }
   }
 
