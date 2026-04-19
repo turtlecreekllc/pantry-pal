@@ -102,7 +102,7 @@ export default function MoreScreen(): React.ReactElement {
         {/* Profile Header */}
         <TouchableOpacity
           style={styles.profileCard}
-          onPress={() => handleNavigate('/settings/account')}
+          onPress={() => handleNavigate('/settings/profile')}
         >
           <View style={styles.profileAvatar}>
             <Text style={styles.profileInitial}>

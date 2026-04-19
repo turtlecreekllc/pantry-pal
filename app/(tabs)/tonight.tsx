@@ -152,7 +152,10 @@ export default function TonightScreen(): React.ReactElement {
   }, [activeHousehold?.id, user?.id]);
 
   const loadRosterAndFeedback = async (): Promise<void> => {
-    if (!activeHousehold?.id || !user?.id) return;
+    if (!activeHousehold?.id || !user?.id) {
+      setRosterLoaded(true);
+      return;
+    }
     try {
       // Load all household member profiles
       const { data: members } = await supabase

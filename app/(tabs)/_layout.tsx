@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, TouchableOpacity, View, StyleSheet, Image } from 'react-native';
@@ -40,14 +40,17 @@ export default function TabLayout(): React.ReactElement {
   const [showSettings, setShowSettings] = useState(false);
   const router = useRouter();
   const { onboardingCompleted, loading: preferencesLoading } = useUserPreferences();
-  
-  // Redirect to onboarding if not completed
+  const hasRedirected = useRef(false);
+
+  // Redirect to onboarding if not completed — only once on initial load.
+  // Using a ref guard prevents re-triggering after onboarding completes and
+  // navigates back here (the stale hook instance would otherwise loop back).
   useEffect(() => {
-    // Wait for preferences to load
     if (preferencesLoading) return;
-    
-    // If onboarding not completed, redirect to onboarding
+    if (hasRedirected.current) return;
+
     if (!onboardingCompleted) {
+      hasRedirected.current = true;
       router.replace('/onboarding');
     }
   }, [onboardingCompleted, preferencesLoading, router]);
