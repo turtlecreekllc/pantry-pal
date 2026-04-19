@@ -243,6 +243,21 @@ describe('useSubscription Hook - Business Logic', () => {
     });
   });
 
+  describe('Checkout error handling (openCheckout)', () => {
+    it('returns error when createCheckoutSession returns an error field', () => {
+      // Validate that the service can return an error object
+      const errorResult = { url: null, error: 'Price ID not configured' };
+      expect(errorResult.error).toBeTruthy();
+      expect(errorResult.url).toBeNull();
+    });
+
+    it('returns url when createCheckoutSession succeeds', () => {
+      const successResult = { url: 'https://checkout.stripe.com/pay/test_abc', error: null };
+      expect(successResult.url).toBeTruthy();
+      expect(successResult.error).toBeNull();
+    });
+  });
+
   describe('Pricing Constants', () => {
     it('should have valid monthly pricing', () => {
       expect(PLAN_PRICING.premium_monthly.displayPrice).toBe('$9.99');

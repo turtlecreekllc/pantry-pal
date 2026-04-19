@@ -32,7 +32,7 @@ interface UsePantryReturn {
   deleteItem: (id: string) => Promise<void>;
   useItem: (id: string, amount: number, options?: UseItemOptions) => Promise<void>;
   restoreItem: (id: string, amount: number, mealPlanId: string) => Promise<void>;
-  refreshPantry: () => Promise<void>;
+  refreshPantry: (silent?: boolean) => Promise<void>;
 }
 
 export function usePantry(options: UsePantryOptions = {}): UsePantryReturn {
@@ -46,13 +46,13 @@ export function usePantry(options: UsePantryOptions = {}): UsePantryReturn {
   const { user } = useAuth();
   const isHouseholdMode = Boolean(householdId);
 
-  const fetchPantryItems = useCallback(async () => {
+  const fetchPantryItems = useCallback(async (silent = false) => {
     if (!user) {
       setPantryItems([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
       let query = supabase
@@ -214,8 +214,8 @@ export function usePantry(options: UsePantryOptions = {}): UsePantryReturn {
     }
   };
 
-  const refreshPantry = async () => {
-    await fetchPantryItems();
+  const refreshPantry = async (silent = false) => {
+    await fetchPantryItems(silent);
   };
 
   const useItem = async (id: string, amount: number, options?: UseItemOptions) => {

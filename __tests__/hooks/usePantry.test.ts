@@ -216,11 +216,11 @@ describe('usePantry Hook', () => {
 
     it('should expose refreshPantry function', async () => {
       const { result } = renderHook(() => usePantry({ householdId: 'household-123' }));
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-      
+
       expect(typeof result.current.refreshPantry).toBe('function');
     });
 
@@ -271,13 +271,14 @@ describe('usePantry Hook', () => {
   describe('error handling', () => {
     it('should handle missing householdId', async () => {
       const { result } = renderHook(() => usePantry({}));
-      
+
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-      
+
       // Should not crash without householdId
       expect(result.current.pantryItems).toBeDefined();
     });
   });
+
 });

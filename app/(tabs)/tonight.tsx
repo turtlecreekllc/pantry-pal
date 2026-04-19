@@ -209,6 +209,8 @@ export default function TonightScreen(): React.ReactElement {
   }, [pantryItems, pantryLoading, rosterLoaded, activeRosterIds]);
   
   const loadSuggestions = async (forceRefresh = false): Promise<void> => {
+    // Safety valve: never stay in loading state longer than 15 seconds
+    const timeoutId = setTimeout(() => setLoading(false), 15000);
     try {
       setLoading(true);
       console.log('[Tonight] Loading suggestions, pantry items:', pantryItems.length);
@@ -276,6 +278,7 @@ export default function TonightScreen(): React.ReactElement {
     } catch (error) {
       console.error('[Tonight] Error loading suggestions:', error);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
@@ -435,14 +438,18 @@ export default function TonightScreen(): React.ReactElement {
     ? generatePersonalizedIntro(currentRecipe, householdSize)
     : '';
   
-  if (loading && !refreshing) {
+  // If pantry is empty (and not actively refreshing), skip straight to empty state —
+  // there's nothing to generate suggestions from so no reason to show the skeleton.
+  if (loading && !refreshing && pantryItems.length === 0 && !pantryLoading) {
+    // fall through to empty state below
+  } else if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container} edges={[]}>
         <TonightSkeleton />
       </SafeAreaView>
     );
   }
-  
+
   // Empty state - no pantry items
   if (pantryItems.length === 0) {
     return (

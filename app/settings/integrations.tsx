@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealth } from '../../context/HealthContext';
+import { useCalendar } from '../../hooks/useCalendar';
 import { CalendarSettingsModal } from '../../components/CalendarSettingsModal';
 
 export default function IntegrationsScreen() {
   const { isHealthSyncEnabled, toggleHealthSync } = useHealth();
+  const { settings: calendarSettings } = useCalendar();
   const [calendarSettingsVisible, setCalendarSettingsVisible] = useState(false);
 
   return (
@@ -32,10 +34,15 @@ export default function IntegrationsScreen() {
               <View style={styles.menuItemContent}>
                 <Text style={styles.menuItemText}>Calendar Integration</Text>
                 <Text style={styles.menuItemDescription}>
-                  Sync meal plans to your calendar
+                  {calendarSettings.enabled && calendarSettings.calendarName
+                    ? `Syncing to: ${calendarSettings.calendarName}`
+                    : 'Sync meal plans to your calendar'}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#ccc" />
+              {calendarSettings.enabled
+                ? <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
+                : <Ionicons name="chevron-forward" size={20} color="#ccc" />
+              }
             </TouchableOpacity>
           </View>
         </View>
