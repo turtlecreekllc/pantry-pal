@@ -19,6 +19,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -163,9 +164,13 @@ export default function HelpScreen(): React.ReactElement {
           </View>
         )}
         <View style={[styles.chatBubble, isUser ? styles.userBubble : styles.aiBubble]}>
-          <Text style={[styles.chatBubbleText, isUser ? styles.userBubbleText : styles.aiBubbleText]}>
-            {item.content}
-          </Text>
+          {isUser ? (
+            <Text style={[styles.chatBubbleText, styles.userBubbleText]}>
+              {item.content}
+            </Text>
+          ) : (
+            <Markdown style={markdownStyles}>{item.content}</Markdown>
+          )}
         </View>
       </View>
     );
@@ -464,6 +469,54 @@ export default function HelpScreen(): React.ReactElement {
     </KeyboardAvoidingView>
   );
 }
+
+const markdownStyles = {
+  body: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textBase,
+    color: colors.brown,
+    lineHeight: typography.textBase * 1.4,
+  },
+  strong: {
+    fontFamily: 'Nunito-Bold',
+    fontWeight: typography.fontBold as any,
+  },
+  em: { fontStyle: 'italic' as const },
+  bullet_list: { marginTop: 4, marginBottom: 4 },
+  ordered_list: { marginTop: 4, marginBottom: 4 },
+  list_item: { marginBottom: 2 },
+  heading1: {
+    fontFamily: 'Quicksand-Bold',
+    fontSize: typography.textXl,
+    fontWeight: typography.fontBold as any,
+    color: colors.brown,
+    marginBottom: 4,
+  },
+  heading2: {
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.textLg,
+    fontWeight: typography.fontSemibold as any,
+    color: colors.brown,
+    marginBottom: 4,
+  },
+  heading3: {
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.textBase,
+    fontWeight: typography.fontSemibold as any,
+    color: colors.brown,
+    marginBottom: 4,
+  },
+  code_inline: {
+    backgroundColor: colors.creamDark,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textSm,
+    color: colors.brown,
+  },
+  paragraph: { marginTop: 0, marginBottom: 4 },
+  link: { color: colors.coral, textDecorationLine: 'underline' as const },
+};
 
 const styles = StyleSheet.create({
   container: {
