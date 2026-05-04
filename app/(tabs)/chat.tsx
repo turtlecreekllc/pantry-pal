@@ -279,6 +279,17 @@ const markdownStyles = {
     color: colors.brown,
     marginBottom: 4,
   },
+  heading3: {
+    fontFamily: 'Quicksand-SemiBold',
+    fontSize: typography.textBase,
+    fontWeight: typography.fontSemibold as any,
+    color: colors.brown,
+    marginBottom: 4,
+  },
+  link: {
+    color: colors.coral,
+    textDecorationLine: 'underline' as const,
+  },
   code_inline: {
     backgroundColor: colors.creamDark,
     borderRadius: 4,
