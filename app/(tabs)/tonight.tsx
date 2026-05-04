@@ -145,9 +145,22 @@ export default function TonightScreen(): React.ReactElement {
     setGreeting(getGreeting(firstName));
   }, [firstName]);
 
-  // Load household member profiles and recent feedback
+  // Load household member profiles and recent feedback.
+  // Always settle rosterLoaded — otherwise the loadSuggestions gate below
+  // (rosterLoaded || !activeHousehold?.id) stays closed forever when the
+  // user has a household but user.id is briefly null on first render,
+  // leaving the home screen stuck in the skeleton state.
   useEffect(() => {
-    if (!activeHousehold?.id || !user?.id) return;
+    if (!activeHousehold?.id) {
+      setRosterLoaded(true);
+      return;
+    }
+    if (!user?.id) {
+      // Wait for user to resolve before loading roster, but don't gate
+      // suggestions on it — let them render with no roster constraints.
+      setRosterLoaded(true);
+      return;
+    }
     loadRosterAndFeedback();
   }, [activeHousehold?.id, user?.id]);
 
