@@ -48,6 +48,7 @@ import { generateContextualSuggestions, getQuickActions } from '../../lib/pepper
 import { EnhancedScoredRecipe, PantryItem, MealPlan } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
+import { AnalyticsEvent, track } from '../../lib/analytics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -319,14 +320,22 @@ export default function TonightScreen(): React.ReactElement {
     // Like and move to next
     if (suggestions[currentIndex] && user?.id) {
       const recipe = suggestions[currentIndex].recipe;
+      const isFirstAccept =
+        recentFeedback.likedRecipeNames.length === 0 &&
+        recentFeedback.cookedRecipeNames.length === 0;
       persistRecipeFeedback(recipe.id, recipe.name, { liked: true });
+      if (isFirstAccept) {
+        track(AnalyticsEvent.FirstTonightSuggestionAccepted, {
+          recipe_source: recipe.id.startsWith('spoonacular-') ? 'spoonacular' : 'themealdb',
+        });
+      }
     }
     if (currentIndex < suggestions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
       setCurrentIndex(0);
     }
-  }, [currentIndex, suggestions, suggestions.length, user?.id]);
+  }, [currentIndex, suggestions, suggestions.length, user?.id, recentFeedback]);
 
   const persistRecipeFeedback = async (
     recipeId: string,
@@ -366,17 +375,22 @@ export default function TonightScreen(): React.ReactElement {
     try {
       const source = recipe.id.startsWith('spoonacular-') ? 'spoonacular' : 'themealdb';
       await saveRecipe({ ...recipe, recipeSource: source }, source);
+      // recipe_saved event fires inside useSavedRecipes for all surfaces.
       Alert.alert('Saved!', `${recipe.name} has been added to your saved recipes.`);
     } catch (error) {
       console.error('Error saving recipe:', error);
       Alert.alert('Error', 'Could not save recipe. Please try again.');
     }
   }, [saveRecipe]);
-  
+
   const handleCookedThis = useCallback((): void => {
     if (suggestions[currentIndex] && user?.id) {
       const recipe = suggestions[currentIndex].recipe;
       persistRecipeFeedback(recipe.id, recipe.name, { cooked: true });
+      track(AnalyticsEvent.RecipeCooked, {
+        recipe_source: recipe.id.startsWith('spoonacular-') ? 'spoonacular' : 'themealdb',
+        surface: 'tonight',
+      });
       Alert.alert('Nice!', `Great job cooking ${recipe.name}! We'll remember this.`);
     }
   }, [currentIndex, suggestions, user?.id]);

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { SavedRecipe, ExtendedRecipe, RecipeSource } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
+import { AnalyticsEvent, track } from '../lib/analytics';
 
 interface UseSavedRecipesReturn {
   savedRecipes: SavedRecipe[];
@@ -80,6 +81,9 @@ export function useSavedRecipes(): UseSavedRecipesReturn {
       }
 
       setSavedRecipes((prev) => [data, ...prev]);
+      track(AnalyticsEvent.RecipeSaved, {
+        recipe_source: source,
+      });
     } catch (err) {
       const error = err as { message?: string; code?: string; details?: string };
       console.error('Error saving recipe to saved_recipes:', {

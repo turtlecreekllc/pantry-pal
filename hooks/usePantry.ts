@@ -10,6 +10,7 @@ import {
   cancelItemExpiryNotification,
 } from '../lib/notificationScheduler';
 import { invalidateTonightCache } from '../lib/tonightCacheService';
+import { AnalyticsEvent, track } from '../lib/analytics';
 
 interface UseItemOptions {
   note?: string;
@@ -104,7 +105,16 @@ export function usePantry(options: UsePantryOptions = {}): UsePantryReturn {
         throw new Error(insertError.message || 'Database error');
       }
       if (data) {
+        const wasFirstItem = pantryItems.length === 0;
         setPantryItems((prev) => [data, ...prev]);
+        if (wasFirstItem) {
+          // Activation milestone — once per user / household perspective.
+          // Server-side dedupe lives in PostHog (event recency); the client
+          // only suppresses repeats within the same in-memory list state.
+          track(AnalyticsEvent.FirstPantryItemAdded, {
+            household_mode: isHouseholdMode,
+          });
+        }
         if (isHouseholdMode && householdId) {
           logActivity({
             householdId,

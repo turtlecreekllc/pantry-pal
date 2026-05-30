@@ -30,6 +30,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useUserPreferences } from '../../hooks/useUserPreferences';
 import { searchRecipes } from '../../lib/recipeService';
+import { AnalyticsEvent, track } from '../../lib/analytics';
 
 const MascotImage = require('../../assets/icon.png');
 import { RecipePreview } from '../../lib/types';
@@ -178,7 +179,14 @@ export default function OnboardingScreen(): React.ReactElement {
       dietary_preferences: dietaryArray,
       onboarding_step: 1,
     });
-    
+
+    track(AnalyticsEvent.OnboardingStepCompleted, {
+      step: 'personalize',
+      step_index: 1,
+      household_size: householdSizeValue,
+      dietary_count: dietaryArray.length,
+    });
+
     fetchPopularRecipe();
     setStep('first-suggestion');
   };
@@ -203,6 +211,11 @@ export default function OnboardingScreen(): React.ReactElement {
   };
   
   const handleChecklistDone = (): void => {
+    track(AnalyticsEvent.OnboardingStepCompleted, {
+      step: 'pantry-checklist',
+      step_index: 2,
+      ingredient_count: selectedIngredients.size,
+    });
     fetchPersonalizedRecipe();
     setStep('personalized-result');
   };
@@ -210,24 +223,28 @@ export default function OnboardingScreen(): React.ReactElement {
   const handleStartTrial = async (): Promise<void> => {
     // Mark onboarding as complete and start trial
     await completeOnboarding();
+    track(AnalyticsEvent.OnboardingCompleted, { exit: 'start_trial' });
     const result = await startTrial();
     if (result.success) {
+      track(AnalyticsEvent.TrialStart, { source: 'onboarding' });
       router.replace('/(tabs)/tonight');
     } else {
       // Still navigate even if trial fails - user completed onboarding
       router.replace('/(tabs)/tonight');
     }
   };
-  
+
   const handleSkipToFree = async (): Promise<void> => {
     // Mark onboarding as complete even when skipping
     await completeOnboarding();
+    track(AnalyticsEvent.OnboardingCompleted, { exit: 'skip_to_free' });
     router.replace('/(tabs)/tonight');
   };
-  
+
   const handleEnterApp = async (): Promise<void> => {
     // Mark onboarding as complete
     await completeOnboarding();
+    track(AnalyticsEvent.OnboardingCompleted, { exit: 'enter_app' });
     router.replace('/(tabs)/tonight');
   };
   

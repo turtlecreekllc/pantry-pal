@@ -3,7 +3,8 @@
  * Global subscription state management for DinnerPlans.ai
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
+import { AnalyticsEvent, track } from '../lib/analytics';
 import { useAuth } from './AuthContext';
 import {
   SubscriptionState,
@@ -59,6 +60,9 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const [state, setState] = useState<SubscriptionState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Track previous trial state so we can fire trial_convert exactly once when
+  // the user transitions from trial → paid (driven by server-side webhook).
+  const wasTrialRef = useRef<boolean>(false);
   /**
    * Refresh subscription state from server
    */
@@ -72,6 +76,15 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     setError(null);
     try {
       const subscriptionState = await subscriptionService.getSubscriptionState(user.id);
+      const wasTrial = wasTrialRef.current;
+      const isNowPaid =
+        subscriptionState?.isPremium && !subscriptionState?.isTrial;
+      if (wasTrial && isNowPaid) {
+        track(AnalyticsEvent.TrialConvert, {
+          tier: subscriptionState?.subscription?.tier,
+        });
+      }
+      wasTrialRef.current = Boolean(subscriptionState?.isTrial);
       setState(subscriptionState);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load subscription');

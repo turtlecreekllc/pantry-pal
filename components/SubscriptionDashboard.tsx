@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSubscription, PLAN_PRICING, TOKEN_BUCKETS } from '../hooks/useSubscription';
 import { Button } from './ui/Button';
 import { getTierCategory, TierCategory, FEATURE_ACCESS } from '../lib/types';
+import { AnalyticsEvent, track } from '../lib/analytics';
 
 interface SubscriptionDashboardProps {
   onViewHistory?: () => void;
@@ -116,6 +117,9 @@ export function SubscriptionDashboard({ onViewHistory, onUpgrade, onShowPaywall 
           onPress: async () => {
             const result = await cancelSubscription();
             if (result.success) {
+              track(AnalyticsEvent.SubscriptionCancel, {
+                tier: state?.subscription?.tier,
+              });
               Alert.alert('Subscription Canceled', 'Your subscription will remain active until the end of your billing period.');
             } else {
               Alert.alert('Error', result.error || 'Failed to cancel subscription');

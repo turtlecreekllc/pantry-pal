@@ -24,6 +24,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useAuth } from '../context/AuthContext';
+import { AnalyticsEvent, track } from '../lib/analytics';
 import * as subscriptionService from '../lib/subscriptionService';
 import {
   PaymentProvider,
@@ -213,6 +214,11 @@ export function PaywallModal({
   useEffect(() => {
     if (visible && user?.id) {
       loadPaywallConfig();
+      track(AnalyticsEvent.PaywallView, {
+        trigger: context?.trigger,
+        limit: context?.limit,
+        highlighted_tier: context?.highlightedTier ?? highlightTier ?? 'individual',
+      });
     }
   }, [visible, user?.id]);
   // Update selected tier when context changes
@@ -256,6 +262,11 @@ export function PaywallModal({
       const trialTier = selectedTier === 'family' ? 'trial_family' : 'trial_individual';
       const result = await subscriptionService.startFreeTrial(user.id, trialTier);
       if (result.success) {
+        track(AnalyticsEvent.TrialStart, {
+          tier: trialTier,
+          source: 'paywall',
+          trigger: context?.trigger,
+        });
         onSuccess?.();
         onClose();
       } else {
@@ -311,6 +322,12 @@ export function PaywallModal({
         );
       }
       if (result.success) {
+        track(AnalyticsEvent.PaywallPurchase, {
+          tier: getSubscriptionTier(),
+          billing_cycle: billingCycle,
+          provider: selectedProvider,
+          trigger: context?.trigger,
+        });
         onSuccess?.();
         onClose();
       } else if (result.error && !result.error.includes('cancel')) {

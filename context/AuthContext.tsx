@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useRouter, useSegments } from 'expo-router';
+import { AnalyticsEvent, identify, reset, track } from '../lib/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -29,13 +30,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
       setInitialized(true);
+      if (session?.user?.id) {
+        identify(session.user.id);
+      }
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user?.id) {
+        // Merges the anonymous distinct_id collected pre-login into this user.
+        identify(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        reset();
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -89,12 +99,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // If session is null but user exists, email confirmation is required
       if (data.user && !data.session) {
+        if (data.user.id) {
+          track(AnalyticsEvent.Signup, { method: 'email', confirmation_pending: true });
+        }
         return {
           error: null,
           message: 'Please check your email for a confirmation link to complete your registration.'
         };
       }
 
+      if (data.user?.id) {
+        track(AnalyticsEvent.Signup, { method: 'email', confirmation_pending: false });
+      }
       return { error: null };
     } catch (error) {
       return { error: error as Error };

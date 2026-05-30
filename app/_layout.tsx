@@ -11,6 +11,7 @@ import * as Linking from 'expo-linking';
 import * as Font from 'expo-font';
 import { useShareIntent, ShareIntent } from 'expo-share-intent';
 import { handleSharedContent, subscribeToIncomingLinks, handleShareIntent } from '../lib/shareReceiver';
+import { initializeAnalytics } from '../lib/analyticsBootstrap';
 // Siri Shortcuts disabled - causes crash on non-iOS due to native module bundling
 // import { useSiriShortcuts } from '../hooks/useSiriShortcuts';
 import { colors } from '../lib/theme';
@@ -95,6 +96,12 @@ export default function RootLayout(): React.ReactElement | null {
   }, []);
 
   // Share intent is now handled by ShareIntentHandler component
+
+  useEffect(() => {
+    initializeAnalytics().catch((err) => {
+      console.warn('[analytics] initialization error:', err);
+    });
+  }, []);
 
   useEffect(() => {
     async function prepare(): Promise<void> {
