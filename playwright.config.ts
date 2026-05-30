@@ -14,7 +14,7 @@ import { defineConfig, devices } from '@playwright/test';
  *   npx playwright test --headed
  *
  * To run a specific file:
- *   npx playwright test e2e/auth.spec.ts
+ *   npx playwright test e2e/auth.e2e.ts
  *
  * To run with UI:
  *   npx playwright test --ui
@@ -22,6 +22,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  testMatch: '**/*.e2e.ts',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
