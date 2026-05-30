@@ -152,6 +152,12 @@ export default function SettingsLayout(): React.ReactElement {
           title: 'AI Feedback',
         }}
       />
+      <Stack.Screen
+        name="legal"
+        options={{
+          title: 'Privacy & Terms',
+        }}
+      />
     </Stack>
   );
 }

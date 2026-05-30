@@ -18,12 +18,12 @@ import {
   Modal,
   ActivityIndicator,
   ScrollView,
-  Linking,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useAuth } from '../context/AuthContext';
+import { openLegalLink } from '../lib/legalLinks';
 import * as subscriptionService from '../lib/subscriptionService';
 import {
   PaymentProvider,
@@ -355,10 +355,10 @@ export function PaywallModal({
     }
   }, [user?.id, onSuccess, onClose]);
   const openTerms = () => {
-    Linking.openURL(APPLE_DISCLOSURE_TEXT.termsLink);
+    void openLegalLink('terms');
   };
   const openPrivacy = () => {
-    Linking.openURL(APPLE_DISCLOSURE_TEXT.privacyLink);
+    void openLegalLink('privacy');
   };
   if (!visible) return <></>;
   const renderTierCard = (tierDisplay: TierDisplay, index: number) => {

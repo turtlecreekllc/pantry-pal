@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { openLegalLink } from '../../lib/legalLinks';
 import { colors, typography, spacing, borderRadius } from '../../lib/theme';
 
 export default function SignUpScreen(): React.ReactElement {
@@ -112,6 +113,30 @@ export default function SignUpScreen(): React.ReactElement {
               style={styles.button}
             />
 
+            <Text style={styles.legalText}>
+              By signing up, you agree to our{' '}
+              <Text
+                style={styles.legalLink}
+                onPress={() => openLegalLink('terms')}
+                accessibilityRole="link"
+                accessibilityLabel="Terms of Service"
+                testID="signup-terms-link"
+              >
+                Terms
+              </Text>
+              {' '}and{' '}
+              <Text
+                style={styles.legalLink}
+                onPress={() => openLegalLink('privacy')}
+                accessibilityRole="link"
+                accessibilityLabel="Privacy Policy"
+                testID="signup-privacy-link"
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account? </Text>
               <Link href="/(auth)/login" asChild>
@@ -186,6 +211,21 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: spacing.space2,
+  },
+  legalText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: typography.textXs,
+    color: colors.brownMuted,
+    textAlign: 'center',
+    marginTop: spacing.space4,
+    lineHeight: typography.textXs * 1.5,
+    paddingHorizontal: spacing.space2,
+  },
+  legalLink: {
+    fontFamily: 'Nunito-SemiBold',
+    color: colors.coral,
+    fontWeight: typography.fontSemibold,
+    textDecorationLine: 'underline',
   },
   footer: {
     flexDirection: 'row',
