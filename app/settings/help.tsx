@@ -27,6 +27,7 @@ import { Button } from '../../components/ui/Button';
 import { sendSupportMessage, getSupportPrompts } from '../../lib/supportChatService';
 import { ChatMessage } from '../../lib/types';
 import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 const MascotImage = require('../../assets/icon.png');
 
@@ -182,15 +183,15 @@ export default function HelpScreen(): React.ReactElement {
     : Constants.expoConfig?.android?.versionCode;
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={sharedStyles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={sharedStyles.scrollContent}>
         {/* AI Support Chat Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Chat with Support</Text>
+        <View style={sharedStyles.section}>
+          <Text style={sharedStyles.sectionTitle}>Chat with Support</Text>
           <View style={styles.chatCard}>
             {!isChatExpanded ? (
               <TouchableOpacity 
@@ -312,9 +313,9 @@ export default function HelpScreen(): React.ReactElement {
         </View>
 
         {/* Email Support Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Support</Text>
-          <View style={styles.card}>
+        <View style={sharedStyles.section}>
+          <Text style={sharedStyles.sectionTitle}>Contact Support</Text>
+          <View style={sharedStyles.card}>
             <TouchableOpacity style={styles.contactItem} onPress={handleEmailSupport}>
               <View style={styles.contactIcon}>
                 <Ionicons name="mail-outline" size={24} color={colors.primary} />
@@ -331,9 +332,9 @@ export default function HelpScreen(): React.ReactElement {
         </View>
 
         {/* FAQ Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
-          <View style={styles.card}>
+        <View style={sharedStyles.section}>
+          <Text style={sharedStyles.sectionTitle}>Frequently Asked Questions</Text>
+          <View style={sharedStyles.card}>
             {FAQ_ITEMS.map((item, index) => (
               <View key={index}>
                 {index > 0 && <View style={styles.faqDivider} />}
@@ -362,9 +363,9 @@ export default function HelpScreen(): React.ReactElement {
         </View>
 
         {/* Feedback Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Send Feedback</Text>
-          <View style={styles.card}>
+        <View style={sharedStyles.section}>
+          <Text style={sharedStyles.sectionTitle}>Send Feedback</Text>
+          <View style={sharedStyles.card}>
             <View style={styles.feedbackContainer}>
               <Text style={styles.feedbackLabel}>
                 Help us improve DinnerPlans
@@ -389,9 +390,9 @@ export default function HelpScreen(): React.ReactElement {
         </View>
 
         {/* Feature Guides Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Feature Guides</Text>
-          <View style={styles.card}>
+        <View style={sharedStyles.section}>
+          <Text style={sharedStyles.sectionTitle}>Feature Guides</Text>
+          <View style={sharedStyles.card}>
             <TouchableOpacity
               style={styles.resourceItem}
               onPress={() => router.push('/settings/integrations')}
@@ -406,9 +407,9 @@ export default function HelpScreen(): React.ReactElement {
         </View>
 
         {/* Resources Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Resources</Text>
-          <View style={styles.card}>
+        <View style={sharedStyles.section}>
+          <Text style={sharedStyles.sectionTitle}>Resources</Text>
+          <View style={sharedStyles.card}>
             <TouchableOpacity
               style={styles.resourceItem}
               onPress={() => Linking.openURL('https://dinnerplans.app/privacy')}
@@ -504,36 +505,8 @@ const markdownStyles = {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
   scrollView: {
     flex: 1,
-  },
-  content: {
-    padding: spacing.space4,
-    paddingBottom: spacing.space10,
-  },
-  section: {
-    marginBottom: spacing.space6,
-  },
-  sectionTitle: {
-    fontFamily: 'Nunito-SemiBold',
-    fontSize: typography.textXs,
-    fontWeight: typography.fontSemibold,
-    color: colors.brownMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: spacing.space2,
-    marginLeft: spacing.space1,
-  },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    borderWidth: 2,
-    borderColor: colors.brown,
-    overflow: 'hidden',
   },
   chatCard: {
     backgroundColor: colors.white,

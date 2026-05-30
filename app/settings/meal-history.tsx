@@ -17,6 +17,7 @@ import { supabase } from '../../lib/supabase';
 import { gamificationService } from '../../lib/gamificationService';
 import { MealPlan, UserImpactSummary } from '../../lib/types';
 import { colors, spacing, borderRadius } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 interface CompletedMealWithImpact extends MealPlan {
   estimatedSavings?: number;
@@ -103,7 +104,7 @@ export default function MealHistoryScreen(): React.ReactElement {
     return mealType.charAt(0).toUpperCase() + mealType.slice(1);
   };
 
-  if (!user) return <View style={styles.container} />;
+  if (!user) return <View style={sharedStyles.screen} />;
 
   if (loading) {
     return (
@@ -121,8 +122,8 @@ export default function MealHistoryScreen(): React.ReactElement {
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
+      style={sharedStyles.screen}
+      contentContainerStyle={sharedStyles.scrollContent}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -275,14 +276,6 @@ export default function MealHistoryScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
-  content: {
-    padding: spacing.space4,
-    paddingBottom: spacing.space10,
-  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',

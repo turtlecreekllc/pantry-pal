@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUserPreferences } from '../../hooks/useUserPreferences';
 import { Button } from '../../components/ui/Button';
 import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 type HouseholdSize = 'just-me' | 'couple' | 'family-small' | 'family-large';
 type CookingSkill = 'beginner' | 'intermediate' | 'advanced';
@@ -163,7 +164,7 @@ export default function PreferencesScreen(): React.ReactElement {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={sharedStyles.screen} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.coral} />
           <Text style={styles.loadingText}>Loading preferences...</Text>
@@ -173,14 +174,14 @@ export default function PreferencesScreen(): React.ReactElement {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={sharedStyles.screen} edges={['bottom']}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={sharedStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Household Size */}
-        <View style={styles.section}>
+        <View style={sharedStyles.section}>
           <Text style={styles.sectionTitle}>Household Size</Text>
           <Text style={styles.sectionDescription}>
             This helps us suggest the right portion sizes
@@ -215,7 +216,7 @@ export default function PreferencesScreen(): React.ReactElement {
         </View>
 
         {/* Dietary Preferences */}
-        <View style={styles.section}>
+        <View style={sharedStyles.section}>
           <Text style={styles.sectionTitle}>Dietary Preferences</Text>
           <Text style={styles.sectionDescription}>
             We'll filter recipes to match your diet
@@ -248,7 +249,7 @@ export default function PreferencesScreen(): React.ReactElement {
         </View>
 
         {/* Allergies */}
-        <View style={styles.section}>
+        <View style={sharedStyles.section}>
           <Text style={styles.sectionTitle}>Allergies</Text>
           <Text style={styles.sectionDescription}>
             We'll exclude recipes with these ingredients
@@ -282,7 +283,7 @@ export default function PreferencesScreen(): React.ReactElement {
         </View>
 
         {/* Favorite Cuisines */}
-        <View style={styles.section}>
+        <View style={sharedStyles.section}>
           <Text style={styles.sectionTitle}>Favorite Cuisines</Text>
           <Text style={styles.sectionDescription}>
             We'll prioritize recipes from these cuisines
@@ -314,7 +315,7 @@ export default function PreferencesScreen(): React.ReactElement {
         </View>
 
         {/* Cooking Skill */}
-        <View style={styles.section}>
+        <View style={sharedStyles.section}>
           <Text style={styles.sectionTitle}>Cooking Skill</Text>
           <Text style={styles.sectionDescription}>
             This helps us suggest appropriate recipes
@@ -353,7 +354,7 @@ export default function PreferencesScreen(): React.ReactElement {
         </View>
 
         {/* Max Cook Time */}
-        <View style={styles.section}>
+        <View style={sharedStyles.section}>
           <Text style={styles.sectionTitle}>Max Cook Time</Text>
           <Text style={styles.sectionDescription}>
             Only show recipes that fit your schedule
@@ -387,7 +388,7 @@ export default function PreferencesScreen(): React.ReactElement {
         </View>
 
         {/* Restart Onboarding */}
-        <View style={styles.section}>
+        <View style={sharedStyles.section}>
           <TouchableOpacity
             style={styles.restartButton}
             onPress={handleRestartOnboarding}
@@ -427,10 +428,6 @@ export default function PreferencesScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -444,13 +441,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.space4,
-    paddingBottom: spacing.space10,
-  },
-  section: {
-    marginBottom: spacing.space6,
   },
   sectionTitle: {
     fontFamily: 'Quicksand-Bold',

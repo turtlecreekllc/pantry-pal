@@ -19,6 +19,7 @@ import { useUserPreferences, COOKING_EQUIPMENT_OPTIONS } from '../../hooks/useUs
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
 import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 interface UserProfile {
   firstName: string;
@@ -226,8 +227,8 @@ export default function ProfileScreen() {
     : null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.section}>
+    <ScrollView style={sharedStyles.screen} contentContainerStyle={sharedStyles.scrollContent}>
+      <View style={sharedStyles.section}>
         <Text style={styles.sectionTitle}>Profile</Text>
         <View style={styles.card}>
           <View style={styles.avatarSection}>
@@ -315,7 +316,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
+      <View style={sharedStyles.section}>
         <Text style={styles.sectionTitle}>Preferences</Text>
         <View style={styles.card}>
           <View style={styles.toggleRow}>
@@ -360,7 +361,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
+      <View style={sharedStyles.section}>
         <Text style={styles.sectionTitle}>Cooking Equipment</Text>
         <Text style={styles.sectionSubtitle}>Select all that you have or prefer to use</Text>
         <View style={styles.card}>
@@ -398,7 +399,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
+      <View style={sharedStyles.section}>
         <Text style={styles.sectionTitle}>Security</Text>
         <View style={styles.card}>
           {!isPasswordEditing ? (
@@ -456,7 +457,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
+      <View style={sharedStyles.section}>
         <Text style={styles.sectionTitle}>Data & Privacy</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.menuItem}>
@@ -485,7 +486,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
+      <View style={sharedStyles.section}>
         <View style={styles.card}>
           <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
             <View style={styles.menuItemLeft}>
@@ -509,17 +510,6 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
-  content: {
-    padding: spacing.space4,
-    paddingBottom: spacing.space10,
-  },
-  section: {
-    marginBottom: spacing.space6,
-  },
   sectionTitle: {
     fontFamily: 'Nunito-SemiBold',
     fontSize: typography.textXs,

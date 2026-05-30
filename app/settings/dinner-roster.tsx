@@ -19,6 +19,7 @@ import { useHouseholdContext } from '../../context/HouseholdContext';
 import { supabase } from '../../lib/supabase';
 import { HouseholdMemberProfile } from '../../lib/tonightService';
 import { colors, typography, spacing, borderRadius } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -155,7 +156,7 @@ function MemberEditModal({ visible, profile, onSave, onClose, isSaving }: EditMo
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalContainer}
+        style={sharedStyles.screen}
       >
         {/* Header */}
         <View style={styles.modalHeader}>
@@ -441,7 +442,7 @@ export default function DinnerRosterScreen(): React.ReactElement {
 
   return (
     <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={sharedStyles.screen} contentContainerStyle={styles.content}>
         {/* Intro card */}
         <View style={styles.infoCard}>
           <Ionicons name="people" size={24} color={colors.primary} />
@@ -533,10 +534,6 @@ export default function DinnerRosterScreen(): React.ReactElement {
 // ─── styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
   content: {
     padding: spacing.space4,
     paddingBottom: spacing.space8,
@@ -698,10 +695,6 @@ const styles = StyleSheet.create({
   },
 
   // ── modal ──────────────────────────────────────────────────────────────────
-  modalContainer: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',

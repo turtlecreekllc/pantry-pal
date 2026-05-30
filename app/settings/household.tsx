@@ -17,6 +17,7 @@ import { HouseholdInviteModal } from '../../components/HouseholdInviteModal';
 import { ManagePendingInvites } from '../../components/ManagePendingInvites';
 import { Button } from '../../components/ui/Button';
 import { colors, typography, spacing, borderRadius } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 export default function HouseholdScreen(): React.ReactElement {
   const router = useRouter();
@@ -175,7 +176,7 @@ export default function HouseholdScreen(): React.ReactElement {
 
   if (!activeHousehold && !isCreating) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.emptyContent}>
+      <ScrollView style={sharedStyles.screen} contentContainerStyle={styles.emptyContent}>
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
             <Ionicons name="home-outline" size={64} color={colors.brownMuted} />
@@ -196,7 +197,7 @@ export default function HouseholdScreen(): React.ReactElement {
 
   if (isCreating) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.formContent}>
+      <ScrollView style={sharedStyles.screen} contentContainerStyle={styles.formContent}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Create New Household</Text>
           <Text style={styles.inputLabel}>Household Name</Text>
@@ -232,7 +233,7 @@ export default function HouseholdScreen(): React.ReactElement {
 
   return (
     <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={sharedStyles.screen} contentContainerStyle={styles.content}>
         {/* Household Info */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Household Info</Text>
@@ -377,10 +378,6 @@ export default function HouseholdScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
   content: {
     padding: spacing.space4,
     paddingBottom: spacing.space8,

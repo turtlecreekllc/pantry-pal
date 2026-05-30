@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MealCalendar } from '../../components/MealCalendar';
@@ -12,7 +12,7 @@ import { useHouseholdContext } from '../../context/HouseholdContext';
 import { saveNutritionToHealth } from '../../lib/healthService';
 import { MealPlan, MealType, ExtendedRecipe, IngredientDeduction } from '../../lib/types';
 import { getRecipeDetails } from '../../lib/recipeService';
-import { colors } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 export default function CalendarScreen(): React.ReactElement {
   const router = useRouter();
@@ -134,7 +134,7 @@ export default function CalendarScreen(): React.ReactElement {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <SafeAreaView style={sharedStyles.screen} edges={[]}>
       <MealCalendar
         mealPlans={mealPlans}
         selectedDate={selectedDate}
@@ -154,9 +154,3 @@ export default function CalendarScreen(): React.ReactElement {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
-});

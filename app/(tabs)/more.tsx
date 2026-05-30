@@ -22,6 +22,7 @@ import { useSubscription } from '../../hooks/useSubscription';
 import { useSavedRecipes } from '../../hooks/useSavedRecipes';
 import { useImportedRecipes } from '../../hooks/useImportedRecipes';
 import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 interface MenuItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -93,7 +94,7 @@ export default function MoreScreen(): React.ReactElement {
   };
   
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <SafeAreaView style={sharedStyles.screen} edges={[]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -281,10 +282,6 @@ export default function MoreScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
   scrollView: {
     flex: 1,
   },
