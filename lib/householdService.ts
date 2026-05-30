@@ -466,7 +466,6 @@ async function sendHouseholdNotification({
       },
       body: JSON.stringify({
         householdId,
-        actorUserId,
         actionType,
         actionData,
       }),

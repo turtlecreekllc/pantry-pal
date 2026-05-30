@@ -241,7 +241,6 @@ async function processPurchase(
     // Validate with our backend
     const { data, error } = await supabase.functions.invoke('validate-apple-receipt', {
       body: {
-        userId,
         transactionId: purchase.transactionId,
         originalTransactionId: (purchase as SubscriptionPurchase).originalTransactionIdIOS 
           || purchase.transactionId,

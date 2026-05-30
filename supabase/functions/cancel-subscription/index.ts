@@ -6,6 +6,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@13.10.0';
+import { authenticateRequest, isAuthFailure } from '../_shared/auth.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
@@ -26,13 +27,10 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
   try {
-    const { userId } = await req.json();
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing userId' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (isAuthFailure(auth)) return auth.response;
+    const userId = auth.userId;
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     // Get subscription ID
     const { data: subscription } = await supabase
@@ -71,4 +69,3 @@ serve(async (req: Request) => {
     );
   }
 });
-

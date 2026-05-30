@@ -5,6 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { authenticateRequest, isAuthFailure } from '../_shared/auth.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -13,7 +14,6 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 interface NotificationPayload {
   householdId: string;
-  actorUserId: string;
   actionType: string;
   actionData: Record<string, unknown>;
 }
@@ -27,6 +27,12 @@ interface ExpoPushMessage {
   badge?: number;
   channelId?: string;
 }
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 /**
  * Formats activity into user-friendly notification
@@ -74,23 +80,21 @@ function formatActivityNotification(
 serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const payload: NotificationPayload = await req.json();
-    const { householdId, actorUserId, actionType, actionData } = payload;
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (isAuthFailure(auth)) return auth.response;
+    const actorUserId = auth.userId;
 
-    if (!householdId || !actorUserId || !actionType) {
+    const payload: NotificationPayload = await req.json();
+    const { householdId, actionType, actionData } = payload;
+
+    if (!householdId || !actionType) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -98,8 +102,8 @@ serve(async (req: Request) => {
 
     // Get actor's name for the notification
     const { data: actorData } = await supabase.auth.admin.getUserById(actorUserId);
-    const actorName = actorData?.user?.user_metadata?.first_name || 
-                      actorData?.user?.email?.split('@')[0] || 
+    const actorName = actorData?.user?.user_metadata?.first_name ||
+                      actorData?.user?.email?.split('@')[0] ||
                       'Someone';
 
     // Format notification
@@ -107,7 +111,7 @@ serve(async (req: Request) => {
     if (!notification) {
       return new Response(
         JSON.stringify({ message: 'Activity type does not require notification' }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -121,7 +125,7 @@ serve(async (req: Request) => {
       console.error('send-household-notification: token fetch failed:', tokensError?.code);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch push tokens' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -129,24 +133,24 @@ serve(async (req: Request) => {
     const recipientTokens: string[] = [];
     for (const tokenData of tokens || []) {
       if (tokenData.user_id === actorUserId) continue;
-      
+
       // Check if user has household notifications enabled
       const { data: prefs } = await supabase
         .from('notification_preferences')
         .select('household_activity')
         .eq('user_id', tokenData.user_id)
         .single();
-      
+
       // Default to true if no preferences set
       if (prefs?.household_activity === false) continue;
-      
+
       recipientTokens.push(tokenData.token);
     }
 
     if (recipientTokens.length === 0) {
       return new Response(
         JSON.stringify({ message: 'No recipients to notify' }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -183,26 +187,13 @@ serve(async (req: Request) => {
         sent: recipientTokens.length,
         result,
       }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('send-household-notification error:', (error as Error)?.name, (error as Error)?.stack);
     return new Response(
       JSON.stringify({ error: (error as Error).message }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
-
