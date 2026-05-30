@@ -59,3 +59,10 @@ pantry-pal-*.json
 
 # Source archives (use git history instead)
 *.zip
+
+# Agent orchestration artifacts (local DevFlow state, not source)
+AGENTS.md
+GAP_ANALYSIS.md
+roadmap.yaml
+specs/
+.worktrees/
