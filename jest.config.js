@@ -42,6 +42,7 @@ module.exports = {
     '/dist/',
     '/e2e/', // Playwright e2e tests - run via npm run test:e2e
   ],
+  modulePathIgnorePatterns: ['<rootDir>/.claude/'],
   verbose: true,
 };
 
