@@ -51,3 +51,6 @@ pantry-pal-*.json
 
 # Local backups
 .backups/
+
+# Source archives (use git history instead)
+*.zip
