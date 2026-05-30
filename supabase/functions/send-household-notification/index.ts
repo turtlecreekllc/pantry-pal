@@ -118,7 +118,7 @@ serve(async (req: Request) => {
     );
 
     if (tokensError) {
-      console.error('Error fetching tokens:', tokensError);
+      console.error('send-household-notification: token fetch failed:', tokensError?.code);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch push tokens' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
@@ -192,9 +192,9 @@ serve(async (req: Request) => {
       }
     );
   } catch (error) {
-    console.error('Error sending notification:', error);
+    console.error('send-household-notification error:', (error as Error)?.name, (error as Error)?.stack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as Error).message }),
       {
         status: 500,
         headers: {

@@ -95,8 +95,6 @@ function decodeJWS<T>(jws: string): T {
 }
 
 serve(async (req: Request) => {
-  console.log('=== Apple webhook received ===');
-  
   // Only accept POST requests
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -106,20 +104,15 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    console.log('Raw body received:', JSON.stringify(body).substring(0, 500));
-    
+
     // Apple sends the payload in signedPayload
     const signedPayload = body.signedPayload;
     if (!signedPayload) {
-      console.error('No signedPayload in request body');
       return new Response('Missing signedPayload', { status: 400 });
     }
 
     // Decode the notification payload
     const notification = decodeJWS<DecodedNotificationPayload>(signedPayload);
-    console.log('Notification type:', notification.notificationType);
-    console.log('Notification subtype:', notification.subtype);
-    console.log('Notification UUID:', notification.notificationUUID);
 
     // Log the notification to database
     const { error: logError } = await supabase.from('apple_server_notifications').insert({
@@ -135,7 +128,7 @@ serve(async (req: Request) => {
     });
 
     if (logError) {
-      console.error('Error logging notification:', logError);
+      console.error('apple-webhook: failed to log notification:', logError?.code);
     }
 
     // Decode transaction info if present
@@ -146,16 +139,12 @@ serve(async (req: Request) => {
       transactionInfo = decodeJWS<JWSTransactionDecodedPayload>(
         notification.data.signedTransactionInfo
       );
-      console.log('Transaction ID:', transactionInfo.transactionId);
-      console.log('Original Transaction ID:', transactionInfo.originalTransactionId);
-      console.log('Product ID:', transactionInfo.productId);
     }
 
     if (notification.data.signedRenewalInfo) {
       renewalInfo = decodeJWS<JWSRenewalInfoDecodedPayload>(
         notification.data.signedRenewalInfo
       );
-      console.log('Auto-renew status:', renewalInfo.autoRenewStatus);
     }
 
     // Update notification log with transaction info
@@ -208,11 +197,10 @@ serve(async (req: Request) => {
         break;
 
       case 'TEST':
-        console.log('Test notification received');
         break;
 
       default:
-        console.log(`Unhandled notification type: ${notification.notificationType}`);
+        console.log(`apple-webhook: unhandled notification type ${notification.notificationType}`);
     }
 
     // Mark as processed
@@ -226,8 +214,8 @@ serve(async (req: Request) => {
     });
 
   } catch (err) {
-    console.error('Error processing Apple webhook:', err);
-    return new Response(`Webhook Error: ${err.message}`, { status: 500 });
+    console.error('apple-webhook error:', (err as Error)?.name, (err as Error)?.stack);
+    return new Response('Webhook Error', { status: 500 });
   }
 });
 
@@ -241,32 +229,29 @@ async function handleSubscribed(
   renewal: JWSRenewalInfoDecodedPayload | null
 ) {
   if (!transaction) {
-    console.error('No transaction info for SUBSCRIBED event');
+    console.error('apple-webhook: missing transaction for SUBSCRIBED');
     return;
   }
-
-  console.log('Processing new subscription:', transaction.originalTransactionId);
 
   // Find user by appAccountToken (we pass user_id in this field)
   const userId = transaction.appAccountToken;
   if (!userId) {
-    console.error('No appAccountToken (user_id) in transaction');
     // Try to look up user by original transaction ID from previous purchases
     const { data: existingSub } = await supabase
       .from('subscriptions')
       .select('user_id')
       .eq('apple_original_transaction_id', transaction.originalTransactionId)
       .single();
-    
+
     if (!existingSub) {
-      console.error('Cannot find user for subscription');
+      console.error('apple-webhook: no user for SUBSCRIBED');
       return;
     }
   }
 
   const targetUserId = userId || await findUserByTransaction(supabase, transaction.originalTransactionId);
   if (!targetUserId) {
-    console.error('No user found for subscription');
+    console.error('apple-webhook: no user for SUBSCRIBED');
     return;
   }
 
@@ -285,7 +270,7 @@ async function handleSubscribed(
   });
 
   if (error) {
-    console.error('Error updating subscription:', error);
+    console.error('apple-webhook: subscribe failed:', error?.code);
     throw error;
   }
 
@@ -298,8 +283,6 @@ async function handleSubscribed(
       p_source: 'storekit',
     });
   }
-
-  console.log(`Subscription created for user ${targetUserId}`);
 }
 
 /**
@@ -312,15 +295,13 @@ async function handleRenewal(
   renewal: JWSRenewalInfoDecodedPayload | null
 ) {
   if (!transaction) {
-    console.error('No transaction info for DID_RENEW event');
+    console.error('apple-webhook: missing transaction for DID_RENEW');
     return;
   }
 
-  console.log('Processing renewal:', transaction.originalTransactionId);
-
   const userId = await findUserByTransaction(supabase, transaction.originalTransactionId);
   if (!userId) {
-    console.error('No user found for renewal');
+    console.error('apple-webhook: no user for DID_RENEW');
     return;
   }
 
@@ -343,7 +324,7 @@ async function handleRenewal(
     .eq('user_id', userId);
 
   if (subError) {
-    console.error('Error updating subscription:', subError);
+    console.error('apple-webhook: renewal update failed:', subError?.code);
     throw subError;
   }
 
@@ -362,8 +343,6 @@ async function handleRenewal(
       p_is_annual: isAnnual,
     });
   }
-
-  console.log(`Renewal processed for user ${userId}`);
 }
 
 /**
@@ -376,15 +355,13 @@ async function handleFailedRenewal(
   renewal: JWSRenewalInfoDecodedPayload | null
 ) {
   if (!transaction) {
-    console.error('No transaction info for DID_FAIL_TO_RENEW event');
+    console.error('apple-webhook: missing transaction for DID_FAIL_TO_RENEW');
     return;
   }
 
-  console.log('Processing failed renewal:', transaction.originalTransactionId);
-
   const userId = await findUserByTransaction(supabase, transaction.originalTransactionId);
   if (!userId) {
-    console.error('No user found for failed renewal');
+    console.error('apple-webhook: no user for DID_FAIL_TO_RENEW');
     return;
   }
 
@@ -395,7 +372,6 @@ async function handleFailedRenewal(
       p_original_transaction_id: transaction.originalTransactionId,
       p_grace_period_expires: new Date(renewal.gracePeriodExpiresDate).toISOString(),
     });
-    console.log(`Grace period set for user ${userId}`);
   } else {
     // Mark as billing retry
     await supabase
@@ -406,7 +382,6 @@ async function handleFailedRenewal(
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId);
-    console.log(`Billing retry set for user ${userId}`);
   }
 }
 
@@ -420,15 +395,13 @@ async function handleRenewalStatusChange(
   renewal: JWSRenewalInfoDecodedPayload | null
 ) {
   if (!transaction || !renewal) {
-    console.error('Missing transaction or renewal info for renewal status change');
+    console.error('apple-webhook: missing data for DID_CHANGE_RENEWAL_STATUS');
     return;
   }
 
-  console.log('Processing renewal status change:', transaction.originalTransactionId);
-
   const userId = await findUserByTransaction(supabase, transaction.originalTransactionId);
   if (!userId) {
-    console.error('No user found for renewal status change');
+    console.error('apple-webhook: no user for DID_CHANGE_RENEWAL_STATUS');
     return;
   }
 
@@ -443,8 +416,6 @@ async function handleRenewalStatusChange(
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId);
-
-  console.log(`Auto-renew ${autoRenewEnabled ? 'enabled' : 'disabled'} for user ${userId}`);
 }
 
 /**
@@ -456,15 +427,13 @@ async function handleExpired(
   transaction: JWSTransactionDecodedPayload | null
 ) {
   if (!transaction) {
-    console.error('No transaction info for EXPIRED event');
+    console.error('apple-webhook: missing transaction for EXPIRED');
     return;
   }
 
-  console.log('Processing expiration:', transaction.originalTransactionId);
-
   const userId = await findUserByTransaction(supabase, transaction.originalTransactionId);
   if (!userId) {
-    console.error('No user found for expiration');
+    console.error('apple-webhook: no user for EXPIRED');
     return;
   }
 
@@ -472,8 +441,6 @@ async function handleExpired(
     p_user_id: userId,
     p_original_transaction_id: transaction.originalTransactionId,
   });
-
-  console.log(`Subscription expired for user ${userId}`);
 }
 
 /**
@@ -485,15 +452,13 @@ async function handleGracePeriodExpired(
   transaction: JWSTransactionDecodedPayload | null
 ) {
   if (!transaction) {
-    console.error('No transaction info for GRACE_PERIOD_EXPIRED event');
+    console.error('apple-webhook: missing transaction for GRACE_PERIOD_EXPIRED');
     return;
   }
 
-  console.log('Processing grace period expiration:', transaction.originalTransactionId);
-
   const userId = await findUserByTransaction(supabase, transaction.originalTransactionId);
   if (!userId) {
-    console.error('No user found for grace period expiration');
+    console.error('apple-webhook: no user for GRACE_PERIOD_EXPIRED');
     return;
   }
 
@@ -501,8 +466,6 @@ async function handleGracePeriodExpired(
     p_user_id: userId,
     p_original_transaction_id: transaction.originalTransactionId,
   });
-
-  console.log(`Grace period expired, subscription ended for user ${userId}`);
 }
 
 /**
@@ -514,15 +477,13 @@ async function handleRefund(
   transaction: JWSTransactionDecodedPayload | null
 ) {
   if (!transaction) {
-    console.error('No transaction info for REFUND event');
+    console.error('apple-webhook: missing transaction for REFUND');
     return;
   }
 
-  console.log('Processing refund:', transaction.originalTransactionId);
-
   const userId = await findUserByTransaction(supabase, transaction.originalTransactionId);
   if (!userId) {
-    console.error('No user found for refund');
+    console.error('apple-webhook: no user for REFUND');
     return;
   }
 
@@ -543,8 +504,6 @@ async function handleRefund(
       product_id: transaction.productId,
     },
   });
-
-  console.log(`Refund processed, subscription revoked for user ${userId}`);
 }
 
 /**
@@ -556,15 +515,13 @@ async function handleRevoke(
   transaction: JWSTransactionDecodedPayload | null
 ) {
   if (!transaction) {
-    console.error('No transaction info for REVOKE event');
+    console.error('apple-webhook: missing transaction for REVOKE');
     return;
   }
 
-  console.log('Processing revocation:', transaction.originalTransactionId);
-
   const userId = await findUserByTransaction(supabase, transaction.originalTransactionId);
   if (!userId) {
-    console.error('No user found for revocation');
+    console.error('apple-webhook: no user for REVOKE');
     return;
   }
 
@@ -572,8 +529,6 @@ async function handleRevoke(
     p_user_id: userId,
     p_original_transaction_id: transaction.originalTransactionId,
   });
-
-  console.log(`Access revoked for user ${userId}`);
 }
 
 /**
@@ -585,11 +540,9 @@ async function handleOfferRedeemed(
   transaction: JWSTransactionDecodedPayload | null
 ) {
   if (!transaction) {
-    console.error('No transaction info for OFFER_REDEEMED event');
+    console.error('apple-webhook: missing transaction for OFFER_REDEEMED');
     return;
   }
-
-  console.log('Processing offer redemption:', transaction.originalTransactionId);
 
   // Treat like a new subscription or renewal depending on subtype
   if (notification.subtype === 'INITIAL_BUY' || notification.subtype === 'RESUBSCRIBE') {

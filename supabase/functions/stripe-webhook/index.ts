@@ -32,8 +32,8 @@ serve(async (req: Request) => {
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err);
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    console.error('stripe-webhook: signature verification failed:', (err as Error)?.name);
+    return new Response(`Webhook Error: ${(err as Error).message}`, { status: 400 });
   }
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   // Log the event
@@ -44,7 +44,7 @@ serve(async (req: Request) => {
     processed: false,
   });
   if (logError) {
-    console.error('Error logging event:', logError);
+    console.error('stripe-webhook: event log insert failed:', logError?.code);
   }
   try {
     switch (event.type) {
@@ -70,7 +70,7 @@ serve(async (req: Request) => {
         await handleTrialWillEnd(supabase, event.data.object as Stripe.Subscription);
         break;
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log(`stripe-webhook: unhandled event type ${event.type}`);
     }
     // Mark event as processed
     await supabase
@@ -82,13 +82,13 @@ serve(async (req: Request) => {
       status: 200,
     });
   } catch (err) {
-    console.error('Error processing webhook:', err);
+    console.error('stripe-webhook error:', (err as Error)?.name, (err as Error)?.stack);
     // Log error
     await supabase
       .from('subscription_events')
-      .update({ error_message: err.message })
+      .update({ error_message: (err as Error).message })
       .eq('stripe_event_id', event.id);
-    return new Response(`Webhook Error: ${err.message}`, { status: 500 });
+    return new Response(`Webhook Error: ${(err as Error).message}`, { status: 500 });
   }
 });
 
@@ -216,7 +216,7 @@ async function handleSubscriptionUpdated(
 ) {
   const targetUserId = await getUserByCustomerId(supabase, subscription.customer as string);
   if (!targetUserId) {
-    console.log('No user found for subscription update');
+    console.log('stripe-webhook: no user for subscription update');
     return;
   }
   const priceId = subscription.items.data[0]?.price.id;
@@ -257,7 +257,7 @@ async function handleSubscriptionDeleted(
 ) {
   const targetUserId = await getUserByCustomerId(supabase, subscription.customer as string);
   if (!targetUserId) {
-    console.log('No user found for subscription deletion');
+    console.log('stripe-webhook: no user for subscription deletion');
     return;
   }
   // Downgrade to free tier
@@ -293,7 +293,7 @@ async function handleInvoicePaid(
   }
   const targetUserId = await getUserByCustomerId(supabase, invoice.customer as string);
   if (!targetUserId) {
-    console.log('No user found for invoice');
+    console.log('stripe-webhook: no user for invoice');
     return;
   }
   // Get subscription tier
@@ -342,7 +342,6 @@ async function handleTrialWillEnd(
     return;
   }
   // TODO: Send email notification about trial ending
-  console.log(`Trial ending soon for user ${targetUserId}`);
 }
 
 // Helper functions
