@@ -87,7 +87,7 @@ When adding a new migration:
 ## Testing
 
 ```bash
-npx jest                    # all 304 tests
+npx jest                    # all 549 tests (28 suites)
 npx jest lib/tonightService # specific file
 ```
 

@@ -11,8 +11,6 @@ import * as Linking from 'expo-linking';
 import * as Font from 'expo-font';
 import { useShareIntent, ShareIntent } from 'expo-share-intent';
 import { handleSharedContent, subscribeToIncomingLinks, handleShareIntent } from '../lib/shareReceiver';
-// Siri Shortcuts disabled - causes crash on non-iOS due to native module bundling
-// import { useSiriShortcuts } from '../hooks/useSiriShortcuts';
 import { colors } from '../lib/theme';
 import {
   Nunito_400Regular,
@@ -83,10 +81,6 @@ export default function RootLayout(): React.ReactElement | null {
     shareIntentResult = { shareIntent: null, resetShareIntent: () => {}, hasShareIntent: false };
   }
   const { shareIntent, resetShareIntent, hasShareIntent } = shareIntentResult;
-
-  // Siri Shortcuts disabled - causes crash on non-iOS due to native module bundling
-  // TODO: Re-enable when building for iOS only
-  // useSiriShortcuts();
 
   // Handle incoming shared content from URL scheme
   const handleIncomingUrl = useCallback(async (url: string) => {

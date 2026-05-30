@@ -1,9 +1,9 @@
 # Siri & Voice Assistant Integration
 ## Technical Implementation Guide
 
-**Version:** 1.0  
-**Date:** December 28, 2025  
-**Status:** Implemented
+**Version:** 1.0
+**Date:** December 28, 2025
+**Status:** Deferred (2026-05-29) — scaffolding removed in DOC-001. The `react-native-siri-shortcut` native module caused Metro bundling errors on non-iOS, and the integration was never re-enabled. This document is retained as a reference for any future iOS-only revival; the supporting code (`lib/siriShortcuts.ts`, `hooks/useSiriShortcuts.ts`, `plugins/withSiriShortcuts.js`, the Siri/voice/google-assistant settings screens) has been deleted. The `react-native-siri-shortcut` package remains in `package.json` for now and can be removed in a follow-up.
 
 ---
 
