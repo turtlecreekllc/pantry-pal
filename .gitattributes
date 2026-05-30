@@ -1,0 +1,26 @@
+# Normalize all text files to LF in the repository.
+# Working tree checkout uses LF on every platform — set git config
+# core.autocrlf=false locally to keep Windows checkouts clean.
+* text=auto eol=lf
+
+# Explicit binary types (belt-and-suspenders; text=auto would detect these,
+# but listing them prevents accidental normalization on edge-case content).
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.pdf    binary
+*.zip    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.eot    binary
+*.mp3    binary
+*.mp4    binary
+*.wav    binary
+*.keystore binary
+*.p12    binary
+*.p8     binary

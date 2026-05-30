@@ -13,6 +13,23 @@ Get the app running on your machine for development and testing.
 npm install
 ```
 
+### Windows: disable autocrlf
+
+The repo enforces LF line endings via `.gitattributes`. On Windows, set this once
+per clone to keep `git status` clean (otherwise Git rewrites LF → CRLF on checkout):
+
+```bash
+git config --local core.autocrlf false
+```
+
+If a clone was already created with CRLF in the working tree, refresh it after
+setting the flag:
+
+```bash
+git rm --cached -r .
+git reset --hard HEAD
+```
+
 ## 2. Environment variables
 
 Copy the example env file and fill in your values:
