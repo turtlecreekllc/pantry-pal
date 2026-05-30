@@ -27,6 +27,8 @@
     "test:unit": "jest --testPathIgnorePatterns=\"__tests__/integration\"",
     "test:integration": "jest --testPathPattern=\"__tests__/integration\"",
     "test:payments": "jest --testPathPattern=\"(apple|storefront|subscription|payment|paywall)\"",
+    "clean": "node -e \"const fs=require('fs'),p=require('path');const targets=['.expo','dist','web-build',p.join('node_modules','.cache')];for(const t of targets){fs.rmSync(t,{recursive:true,force:true})}for(const f of fs.readdirSync('.')){if(f.startsWith('.metro-health-check'))fs.rmSync(f,{recursive:true,force:true})}console.log('Cleaned: '+targets.concat(['.metro-health-check*']).join(', '))\"",
+    "clean:all": "npm run clean && node -e \"require('fs').rmSync('node_modules',{recursive:true,force:true});console.log('Removed node_modules')\"",
     "prepare": "husky"
   },
   "dependencies": {
