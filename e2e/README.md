@@ -39,7 +39,7 @@ npm run test:e2e:headed
 npm run test:e2e:ui
 
 # Specific test file
-npx playwright test e2e/auth.spec.ts
+npx playwright test e2e/auth.e2e.ts
 
 # View last test report
 npm run test:e2e:report
@@ -49,12 +49,12 @@ npm run test:e2e:report
 
 | File | Coverage |
 |------|----------|
-| `auth.spec.ts` | Login, signup, logout, redirects |
-| `pantry.spec.ts` | Pantry list, filters, add item (scan + manual) |
-| `recipes.spec.ts` | Recipe search, detail view, saved recipes |
-| `tonight.spec.ts` | Home screen, dinner suggestions, navigation |
-| `plan-and-grocery.spec.ts` | Meal calendar, grocery list CRUD |
-| `onboarding.spec.ts` | First-launch flow, step navigation |
+| `auth.e2e.ts` | Login, signup, logout, redirects |
+| `pantry.e2e.ts` | Pantry list, filters, add item (scan + manual) |
+| `recipes.e2e.ts` | Recipe search, detail view, saved recipes |
+| `tonight.e2e.ts` | Home screen, dinner suggestions, navigation |
+| `plan-and-grocery.e2e.ts` | Meal calendar, grocery list CRUD |
+| `onboarding.e2e.ts` | First-launch flow, step navigation |
 
 ## Environment Variables
 
