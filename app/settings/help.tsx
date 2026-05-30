@@ -392,21 +392,6 @@ export default function HelpScreen(): React.ReactElement {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Feature Guides</Text>
           <View style={styles.card}>
-            {Platform.OS === 'ios' && (
-              <>
-                <TouchableOpacity
-                  style={styles.resourceItem}
-                  onPress={() => router.push('/settings/siri-help')}
-                  accessibilityLabel="Siri Shortcuts Guide"
-                  accessibilityRole="button"
-                >
-                  <Ionicons name="mic-circle-outline" size={22} color={colors.primary} />
-                  <Text style={styles.resourceText}>Siri Shortcuts Guide</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.brownMuted} />
-                </TouchableOpacity>
-                <View style={styles.resourceDivider} />
-              </>
-            )}
             <TouchableOpacity
               style={styles.resourceItem}
               onPress={() => router.push('/settings/integrations')}

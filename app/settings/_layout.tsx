@@ -87,24 +87,6 @@ export default function SettingsLayout(): React.ReactElement {
         }}
       />
       <Stack.Screen
-        name="siri"
-        options={{
-          title: 'Siri Shortcuts',
-        }}
-      />
-      <Stack.Screen
-        name="google-assistant"
-        options={{
-          title: 'Google Assistant',
-        }}
-      />
-      <Stack.Screen
-        name="siri-help"
-        options={{
-          title: 'Siri Shortcuts Guide',
-        }}
-      />
-      <Stack.Screen
         name="household"
         options={{
           title: 'Household',
@@ -114,12 +96,6 @@ export default function SettingsLayout(): React.ReactElement {
         name="dinner-roster"
         options={{
           title: 'Dinner Roster',
-        }}
-      />
-      <Stack.Screen
-        name="voice"
-        options={{
-          title: 'Voice Commands',
         }}
       />
       <Stack.Screen

@@ -173,13 +173,6 @@ export default function MoreScreen(): React.ReactElement {
             iconColor={colors.success}
             onPress={() => handleNavigate('/settings/ai-feedback')}
           />
-          <MenuItem
-            icon="mic"
-            label="Siri & Voice"
-            description="Set up voice commands"
-            iconColor={colors.info}
-            onPress={() => handleNavigate('/settings/voice')}
-          />
         </MenuSection>
         
         {/* Personalization Section */}
