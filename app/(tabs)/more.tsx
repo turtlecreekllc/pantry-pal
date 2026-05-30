@@ -245,6 +245,12 @@ export default function MoreScreen(): React.ReactElement {
             iconColor={colors.info}
             onPress={() => handleNavigate('/settings/help')}
           />
+          <MenuItem
+            icon="shield-checkmark"
+            label="Privacy & Terms"
+            iconColor={colors.brownMuted}
+            onPress={() => handleNavigate('/settings/legal')}
+          />
         </MenuSection>
         
         {/* Upgrade Prompt for Free Users */}
