@@ -109,3 +109,7 @@ Expo Router file-based routing. Settings sub-screens need:
 - `borderRadius.full` is `9999` — no null-coalescing needed
 - Supabase feedback writes use `upsert` with `onConflict: 'household_id,recipe_id'`
 - Image vision calls always compress first via `compressImageForClaude`
+
+## Launch checklist
+
+App Store / Google Play submission artifacts (screenshots, metadata, ASO, privacy answers, demo creds, release notes) are tracked separately in `docs/launch-checklist.md`. Update that file when adding submission-related work — it is the source of truth for what is `DRAFT` / `READY` / `LIVE`.
