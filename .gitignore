@@ -48,6 +48,3 @@ pantry-pal-*.json
 
 # Claude Code local state
 .claude/
-
-# Local backups
-.backups/
