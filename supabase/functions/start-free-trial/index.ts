@@ -131,7 +131,7 @@ serve(async (req: Request) => {
         p_is_annual: false,
       });
       if (tokenErrorFallback) {
-        console.error('Failed to grant tokens:', tokenErrorFallback);
+        console.error('start-free-trial: token grant failed:', tokenErrorFallback?.code);
       }
     }
     // Log subscription event
@@ -159,9 +159,9 @@ serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
-    console.error('Error starting trial:', err);
+    console.error('start-free-trial error:', (err as Error)?.name, (err as Error)?.stack);
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: (err as Error).message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

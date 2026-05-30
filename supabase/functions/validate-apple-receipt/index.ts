@@ -67,8 +67,6 @@ function decodeJWS<T>(jws: string): T {
 }
 
 serve(async (req: Request) => {
-  console.log('=== validate-apple-receipt invoked ===');
-  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -76,14 +74,9 @@ serve(async (req: Request) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
+
     // Parse request body
     const body: ValidateReceiptRequest = await req.json();
-    console.log('Request body:', JSON.stringify({
-      ...body,
-      // Redact sensitive data for logging
-      transactionId: body.transactionId?.substring(0, 8) + '...',
-    }));
 
     const {
       userId,
@@ -108,7 +101,7 @@ serve(async (req: Request) => {
     // Verify user exists
     const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
     if (userError || !userData.user) {
-      console.error('User not found:', userError?.message);
+      console.error('validate-apple-receipt: user lookup failed:', userError?.code);
       return new Response(
         JSON.stringify({ error: 'User not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -123,7 +116,6 @@ serve(async (req: Request) => {
       .single();
 
     if (existingValidation) {
-      console.log('Transaction already validated:', transactionId);
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -182,7 +174,7 @@ serve(async (req: Request) => {
       });
 
     if (validationError) {
-      console.error('Error recording validation:', validationError);
+      console.error('validate-apple-receipt: record validation failed:', validationError?.code);
     }
 
     if (isSubscription) {
@@ -209,7 +201,7 @@ serve(async (req: Request) => {
         }, { onConflict: 'user_id' });
 
       if (subError) {
-        console.error('Error updating subscription:', subError);
+        console.error('validate-apple-receipt: subscription upsert failed:', subError?.code);
         throw new Error(`Failed to update subscription: ${subError.message}`);
       }
 
@@ -222,10 +214,8 @@ serve(async (req: Request) => {
       });
 
       if (tokenError) {
-        console.error('Error granting tokens:', tokenError);
+        console.error('validate-apple-receipt: grant tokens failed:', tokenError?.code);
       }
-
-      console.log(`Subscription activated for user ${userId}: ${tier}`);
 
     } else {
       // Handle token purchase (consumable)
@@ -240,7 +230,7 @@ serve(async (req: Request) => {
       });
 
       if (purchaseError) {
-        console.error('Error recording token purchase:', purchaseError);
+        console.error('validate-apple-receipt: record purchase failed:', purchaseError?.code);
       }
 
       // Add purchased tokens
@@ -250,11 +240,9 @@ serve(async (req: Request) => {
       });
 
       if (tokenError) {
-        console.error('Error adding purchased tokens:', tokenError);
+        console.error('validate-apple-receipt: add purchased tokens failed:', tokenError?.code);
         throw new Error(`Failed to add tokens: ${tokenError.message}`);
       }
-
-      console.log(`Token purchase completed for user ${userId}: ${tokensGranted} tokens`);
     }
 
     // Save storefront if provided
@@ -279,7 +267,7 @@ serve(async (req: Request) => {
     );
 
   } catch (err: any) {
-    console.error('Error validating receipt:', err.message, err.stack);
+    console.error('validate-apple-receipt error:', err?.name, err?.stack);
     return new Response(
       JSON.stringify({ error: err.message || 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

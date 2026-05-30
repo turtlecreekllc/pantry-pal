@@ -11,27 +11,18 @@ const corsHeaders = {
 };
 
 serve(async (req: Request) => {
-  console.log('=== create-checkout-session invoked ===');
-  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Log environment check
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    console.log('Environment check:');
-    console.log('- STRIPE_SECRET_KEY:', stripeKey ? 'SET' : 'NOT SET');
-    console.log('- SUPABASE_URL:', supabaseUrl ? 'SET' : 'NOT SET');
-    console.log('- SUPABASE_SERVICE_ROLE_KEY:', supabaseKey ? 'SET' : 'NOT SET');
 
     // Parse request body
     const body = await req.json();
-    console.log('Request body:', JSON.stringify(body));
 
     const { userId, priceId, mode, successUrl, cancelUrl } = body;
 
@@ -59,28 +50,20 @@ serve(async (req: Request) => {
 
     // Get or create Stripe customer
     let customerId: string;
-    
-    console.log('Looking up subscription for user:', userId);
-    const { data: subscription, error: subError } = await supabase
+
+    const { data: subscription } = await supabase
       .from('subscriptions')
       .select('stripe_customer_id')
       .eq('user_id', userId)
       .single();
 
-    if (subError) {
-      console.log('Subscription lookup result:', subError.message);
-    }
-
     if (subscription?.stripe_customer_id) {
       customerId = subscription.stripe_customer_id;
-      console.log('Using existing Stripe customer:', customerId);
     } else {
       // Get user email
-      console.log('Getting user email...');
       const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
-      
+
       if (userError || !userData.user?.email) {
-        console.error('User lookup failed:', userError?.message || 'No email');
         return new Response(
           JSON.stringify({ error: 'User not found' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -88,13 +71,11 @@ serve(async (req: Request) => {
       }
 
       // Create Stripe customer
-      console.log('Creating Stripe customer for:', userData.user.email);
       const customer = await stripe.customers.create({
         email: userData.user.email,
         metadata: { user_id: userId },
       });
       customerId = customer.id;
-      console.log('Created Stripe customer:', customerId);
 
       // Save customer ID
       await supabase
@@ -108,7 +89,6 @@ serve(async (req: Request) => {
     }
 
     // Create checkout session
-    console.log('Creating checkout session with price:', priceId);
     const sessionParams: any = {
       customer: customerId,
       mode: mode || 'subscription',
@@ -123,7 +103,6 @@ serve(async (req: Request) => {
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
-    console.log('Checkout session created:', session.id);
 
     return new Response(
       JSON.stringify({ url: session.url, sessionId: session.id }),
@@ -131,7 +110,7 @@ serve(async (req: Request) => {
     );
 
   } catch (err: any) {
-    console.error('Error:', err.message, err.stack);
+    console.error('create-checkout-session error:', err?.name, err?.stack);
     return new Response(
       JSON.stringify({ error: err.message || 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
