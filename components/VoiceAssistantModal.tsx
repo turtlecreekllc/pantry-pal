@@ -12,7 +12,14 @@ import {
   Vibration,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import {
+  AudioModule,
+  AudioPlayer,
+  createAudioPlayer,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
 import { ScannedItem, Location, Unit, FillLevel } from '../lib/types';
 import {
@@ -98,16 +105,15 @@ export function VoiceAssistantModal({
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [currentItem, setCurrentItem] = useState<ScannedItem>(item);
   const [currentLocation, setCurrentLocation] = useState<Location>(location);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [soundEffects, setSoundEffects] = useState<Record<string, Audio.Sound>>({});
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const waveAnim = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
   // Use refs to track state for inactivity timer (avoids stale closures)
   const isListeningRef = useRef(isListening);
   const isSpeakingRef = useRef(isSpeaking);
@@ -136,7 +142,7 @@ export function VoiceAssistantModal({
   useEffect(() => {
     const requestPermissions = async () => {
       try {
-        const { status } = await Audio.requestPermissionsAsync();
+        const { status } = await AudioModule.requestRecordingPermissionsAsync();
         setHasPermission(status === 'granted');
       } catch (error) {
         console.error('Error requesting audio permissions:', error);
@@ -170,17 +176,20 @@ export function VoiceAssistantModal({
       setIsSpeaking(true);
       // Stop any currently playing audio
       if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
+        try {
+          soundRef.current.pause();
+          soundRef.current.remove();
+        } catch (cleanupError) {
+          console.error('Error releasing previous player:', cleanupError);
+        }
         soundRef.current = null;
       }
       // Configure audio mode for speaker output with proper volume
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: false,
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+        shouldPlayInBackground: false,
+        shouldRouteThroughEarpiece: false,
       });
       // Call OpenAI TTS API
       const response = await fetch('https://api.openai.com/v1/audio/speech', {
@@ -223,26 +232,24 @@ export function VoiceAssistantModal({
         encoding: FileSystem.EncodingType.Base64,
       });
       // Load and play audio at full volume
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: fileUri },
-        {
-          shouldPlay: true,
-          volume: 1.0,  // Full volume for clear audio
-          rate: 1.0,
-          shouldCorrectPitch: true,
-        }
-      );
-      soundRef.current = sound;
+      const player = createAudioPlayer({ uri: fileUri });
+      player.volume = 1.0; // Full volume for clear audio
+      soundRef.current = player;
       // Set up playback status listener
-      sound.setOnPlaybackStatusUpdate((status) => {
+      player.addListener('playbackStatusUpdate', (status) => {
         if (status.isLoaded && status.didJustFinish) {
           setIsSpeaking(false);
-          sound.unloadAsync().catch(console.error);
+          try {
+            player.remove();
+          } catch (removeError) {
+            console.error('Error removing player:', removeError);
+          }
           soundRef.current = null;
           // Clean up temp file
           FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(console.error);
         }
       });
+      player.play();
     } catch (error) {
       console.error('TTS error:', error);
       setIsSpeaking(false);
@@ -293,7 +300,11 @@ export function VoiceAssistantModal({
       }
       // Clean up any playing sound
       if (soundRef.current) {
-        soundRef.current.unloadAsync().catch(console.error);
+        try {
+          soundRef.current.remove();
+        } catch (error) {
+          console.error('Error removing player on unmount:', error);
+        }
         soundRef.current = null;
       }
     };
@@ -382,8 +393,8 @@ export function VoiceAssistantModal({
   const stopSpeaking = useCallback(async (): Promise<void> => {
     if (soundRef.current) {
       try {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
+        soundRef.current.pause();
+        soundRef.current.remove();
       } catch (error) {
         console.error('Error stopping audio:', error);
       }
@@ -418,14 +429,12 @@ export function VoiceAssistantModal({
     try {
       await stopSpeaking();
       resetActivityTimer();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(newRecording);
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
       setIsListening(true);
       setTranscript('');
     } catch (error) {
@@ -435,18 +444,16 @@ export function VoiceAssistantModal({
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
+    if (!isListening) return;
     setIsListening(false);
     try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setRecording(null);
+      await audioRecorder.stop();
+      const uri = audioRecorder.uri;
       if (uri) {
         await processAudioFile(uri);
       }
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      setRecording(null);
     }
   };
 
@@ -637,9 +644,8 @@ export function VoiceAssistantModal({
 
   const handleClose = async (): Promise<void> => {
     await stopSpeaking();
-    if (recording) {
-      recording.stopAndUnloadAsync().catch(console.error);
-      setRecording(null);
+    if (isListening) {
+      audioRecorder.stop().catch(console.error);
     }
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);

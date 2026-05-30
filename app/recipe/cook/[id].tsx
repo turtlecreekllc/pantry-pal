@@ -13,7 +13,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { Audio } from 'expo-av';
+import { setAudioModeAsync } from 'expo-audio';
 import { useRecipes } from '../../../hooks/useRecipes';
 import { useSavedRecipes } from '../../../hooks/useSavedRecipes';
 import { scaleIngredients, getSuggestedServings, ScaledIngredient } from '../../../lib/servingScaler';
@@ -47,7 +47,6 @@ export default function CookModeScreen() {
   const [showSettings, setShowSettings] = useState(false);
 
   // Refs
-  const soundRef = useRef<Audio.Sound | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Parse instructions into steps
@@ -111,25 +110,14 @@ export default function CookModeScreen() {
     };
   }, []);
 
-  // Load sound
+  // Configure audio mode for cook mode (allow audio to play in silent mode and in background)
   useEffect(() => {
-    const loadSound = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-        });
-      } catch (error) {
-        console.log('Error setting audio mode:', error);
-      }
-    };
-    loadSound();
-
-    return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
-    };
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+    }).catch((error) => {
+      console.log('Error setting audio mode:', error);
+    });
   }, []);
 
   const handleTimerComplete = async (timer: CookingTimer) => {
