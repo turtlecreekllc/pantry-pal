@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMyFeedback, getFeedbackStats, deleteAIFeedback } from '../../lib/aiFeedbackService';
 import { AIFeedback, AIFeedbackRating } from '../../lib/types';
 import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 type FilterType = 'all' | 'positive' | 'negative';
 
@@ -187,7 +188,7 @@ export default function AIFeedbackScreen(): React.ReactElement {
   ), []);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[sharedStyles.screen, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -263,10 +264,6 @@ export default function AIFeedbackScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

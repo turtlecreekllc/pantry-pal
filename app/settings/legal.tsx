@@ -8,6 +8,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { LEGAL_URLS, openLegalLink } from '../../lib/legalLinks';
 import { colors, typography, spacing, borderRadius } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 interface LegalRowProps {
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -51,10 +52,10 @@ export default function LegalScreen(): React.ReactElement {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Legal Documents</Text>
-        <View style={styles.card}>
+    <ScrollView style={sharedStyles.screen} contentContainerStyle={sharedStyles.scrollContent}>
+      <View style={sharedStyles.section}>
+        <Text style={sharedStyles.sectionTitle}>Legal Documents</Text>
+        <View style={sharedStyles.card}>
           <LegalRow
             icon="shield-checkmark-outline"
             title="Privacy Policy"
@@ -84,34 +85,6 @@ export default function LegalScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
-  content: {
-    padding: spacing.space4,
-    paddingBottom: spacing.space10,
-  },
-  section: {
-    marginBottom: spacing.space6,
-  },
-  sectionTitle: {
-    fontFamily: 'Nunito-SemiBold',
-    fontSize: typography.textXs,
-    fontWeight: typography.fontSemibold,
-    color: colors.brownMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: spacing.space2,
-    marginLeft: spacing.space1,
-  },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    borderWidth: 2,
-    borderColor: colors.brown,
-    overflow: 'hidden',
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

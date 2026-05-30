@@ -19,6 +19,7 @@ import { usePantry } from '../../hooks/usePantry';
 import { useHouseholdContext } from '../../context/HouseholdContext';
 import { UsageHistoryEntry, PantryItem } from '../../lib/types';
 import { colors, typography, spacing, borderRadius, shadows } from '../../lib/theme';
+import { sharedStyles } from '../../lib/styles';
 
 interface AggregatedUsageEntry extends UsageHistoryEntry {
   itemId: string;
@@ -270,7 +271,7 @@ export default function UsageHistoryScreen(): React.ReactElement {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={sharedStyles.screen}>
       <FlatList
         data={dateGroups}
         keyExtractor={(item) => item}
@@ -292,10 +293,6 @@ export default function UsageHistoryScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.cream,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
