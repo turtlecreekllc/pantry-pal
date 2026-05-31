@@ -44,9 +44,18 @@ Edit `.env` with your keys. **Required for local run:**
 |----------|-------------|
 | `EXPO_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous (public) key |
-| `EXPO_PUBLIC_OPENAI_API_KEY` | OpenAI API key (for chat, scan, etc.) |
-| `EXPO_PUBLIC_SPOONACULAR_API_KEY` | Spoonacular API key (recipe search) |
-| `EXPO_PUBLIC_STRIPE_*` | Stripe price IDs and test secret (see `.env.example`) |
+| `EXPO_PUBLIC_STRIPE_*` | Stripe price IDs (see `.env.example`) |
+
+**Provider secrets (server-side only).** Anthropic, OpenAI, and Spoonacular keys
+are proxied through Supabase Edge Functions (`claude-proxy`, `openai-audio-proxy`,
+`spoonacular-proxy`) per SEC-006 so they never ship in the client bundle. Set
+them as Supabase secrets, not as `EXPO_PUBLIC_*`:
+
+```bash
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+supabase secrets set OPENAI_API_KEY=sk-...
+supabase secrets set SPOONACULAR_API_KEY=...
+```
 
 **Optional** (features work with fallbacks if unset):
 

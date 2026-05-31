@@ -27,6 +27,10 @@ const PROTECTED_FUNCTIONS = [
   'start-free-trial',
   'validate-apple-receipt',
   'send-household-notification',
+  // SEC-006 provider proxies
+  'claude-proxy',
+  'openai-audio-proxy',
+  'spoonacular-proxy',
 ];
 
 const WEBHOOK_FUNCTIONS = ['stripe-webhook', 'apple-webhook'];

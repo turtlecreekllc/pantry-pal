@@ -101,13 +101,14 @@ jest.mock('./lib/supabase', () => {
   return {
     supabase: {
       auth: {
-        getSession: jest.fn(() => Promise.resolve({ 
-          data: { 
-            session: { 
-              user: { id: 'test-user-id', email: 'test@example.com' } 
-            } 
-          }, 
-          error: null 
+        getSession: jest.fn(() => Promise.resolve({
+          data: {
+            session: {
+              user: { id: 'test-user-id', email: 'test@example.com' },
+              access_token: 'mock-access-token'
+            }
+          },
+          error: null
         })),
         signInWithPassword: jest.fn(() => Promise.resolve({ 
           data: { user: { id: 'test-user-id' } }, 

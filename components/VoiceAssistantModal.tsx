@@ -15,6 +15,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { ScannedItem, Location, Unit, FillLevel } from '../lib/types';
+import { supabase } from '../lib/supabase';
+
+/**
+ * OpenAI audio (TTS + Whisper) is proxied through the Supabase
+ * `openai-audio-proxy` edge function so the OpenAI key never ships in the
+ * client bundle (SEC-006).
+ */
+function getOpenAIAudioProxyUrl(): string | null {
+  const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!base) return null;
+  return `${base.replace(/\/$/, '')}/functions/v1/openai-audio-proxy`;
+}
 import {
   processVoiceCommand,
   applyUpdatesToItem,
@@ -161,9 +173,9 @@ export function VoiceAssistantModal({
   }, []);
 
   const speakText = useCallback(async (text: string): Promise<void> => {
-    const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-    if (!apiKey) {
-      console.error('OpenAI API key not configured');
+    const proxyUrl = getOpenAIAudioProxyUrl();
+    if (!proxyUrl) {
+      console.error('Supabase URL not configured');
       return;
     }
     try {
@@ -182,40 +194,36 @@ export function VoiceAssistantModal({
         shouldDuckAndroid: false,
         playThroughEarpieceAndroid: false,
       });
-      // Call OpenAI TTS API
-      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        console.error('Not signed in: cannot call openai-audio-proxy');
+        setIsSpeaking(false);
+        return;
+      }
+      // Call OpenAI TTS via proxy (SEC-006)
+      const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          op: 'tts',
+          text,
           model: 'tts-1',
-          input: text,
-          voice: 'nova', // Friendly, warm voice
+          voice: 'nova',
           response_format: 'mp3',
           speed: 1.0,
         }),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('OpenAI TTS API error:', errorData);
+        console.error('openai-audio-proxy tts error:', response.status);
         setIsSpeaking(false);
         return;
       }
-      // Get audio data as base64
-      const audioBlob = await response.blob();
-      const reader = new FileReader();
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          // Extract base64 data from data URL
-          const base64Content = base64.split(',')[1];
-          resolve(base64Content);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(audioBlob);
-      });
+      const { audioBase64 } = (await response.json()) as { audioBase64: string };
+      const base64Data = audioBase64;
       // Save to temp file
       const cacheDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? '';
       const fileUri = `${cacheDir}tts_${Date.now()}.mp3`;
@@ -473,30 +481,41 @@ export function VoiceAssistantModal({
   };
 
   const transcribeAudio = async (uri: string): Promise<string | null> => {
-    const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-    if (!apiKey) {
-      console.error('OpenAI API key not configured');
+    const proxyUrl = getOpenAIAudioProxyUrl();
+    if (!proxyUrl) {
+      console.error('Supabase URL not configured');
       return null;
     }
     try {
-      const formData = new FormData();
-      formData.append('file', {
-        uri,
-        type: 'audio/m4a',
-        name: 'recording.m4a',
-      } as any);
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'en');
-      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        console.error('Not signed in: cannot call openai-audio-proxy');
+        return null;
+      }
+      // Read the recorded audio file as base64 to ship over the JSON proxy
+      // boundary (SEC-006). Voice clips are short (seconds), so the size
+      // overhead from base64 is acceptable.
+      const audioBase64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({
+          op: 'stt',
+          audioBase64,
+          filename: 'recording.m4a',
+          mimeType: 'audio/m4a',
+          model: 'whisper-1',
+          language: 'en',
+        }),
       });
       if (!response.ok) {
-        const error = await response.json();
-        console.error('Whisper API error:', error);
+        console.error('openai-audio-proxy stt error:', response.status);
         return null;
       }
       const data = await response.json();
