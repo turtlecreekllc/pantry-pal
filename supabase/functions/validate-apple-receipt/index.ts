@@ -1,7 +1,7 @@
 /**
  * Validate Apple Receipt
  * Supabase Edge Function to validate Apple IAP receipts using StoreKit 2
- * 
+ *
  * Called from the mobile app after a successful purchase to:
  * 1. Verify the transaction with Apple's servers
  * 2. Update the user's subscription status
@@ -11,6 +11,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { decode as base64Decode } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
+import { authenticateRequest, isAuthFailure } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,7 +43,6 @@ interface TransactionPayload {
 }
 
 interface ValidateReceiptRequest {
-  userId: string;
   transactionId: string;
   originalTransactionId: string;
   productId: string;
@@ -73,13 +73,16 @@ serve(async (req: Request) => {
   }
 
   try {
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (isAuthFailure(auth)) return auth.response;
+    const userId = auth.userId;
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
     const body: ValidateReceiptRequest = await req.json();
 
     const {
-      userId,
       transactionId,
       originalTransactionId,
       productId,
@@ -91,20 +94,10 @@ serve(async (req: Request) => {
     } = body;
 
     // Validate required fields
-    if (!userId || !transactionId || !productId) {
+    if (!transactionId || !productId) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verify user exists
-    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
-    if (userError || !userData.user) {
-      console.error('validate-apple-receipt: user lookup failed:', userError?.code);
-      return new Response(
-        JSON.stringify({ error: 'User not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -117,8 +110,8 @@ serve(async (req: Request) => {
 
     if (existingValidation) {
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: 'Transaction already validated',
           alreadyProcessed: true,
         }),
@@ -129,7 +122,7 @@ serve(async (req: Request) => {
     // Determine tier from product ID
     let tier: string = 'premium_monthly';
     let tokensGranted = 100;
-    
+
     // Get tier from product configuration
     const { data: appleProduct } = await supabase
       .from('apple_products')
@@ -274,4 +267,3 @@ serve(async (req: Request) => {
     );
   }
 });
-

@@ -4,6 +4,7 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { authenticateRequest, isAuthFailure } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,10 @@ serve(async (req: Request) => {
   }
 
   try {
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (isAuthFailure(auth)) return auth.response;
+    const userId = auth.userId;
+
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -24,11 +29,11 @@ serve(async (req: Request) => {
     // Parse request body
     const body = await req.json();
 
-    const { userId, priceId, mode, successUrl, cancelUrl } = body;
+    const { priceId, mode, successUrl, cancelUrl } = body;
 
-    if (!userId || !priceId || !successUrl || !cancelUrl) {
+    if (!priceId || !successUrl || !cancelUrl) {
       return new Response(
-        JSON.stringify({ error: 'Missing required parameters', received: { userId: !!userId, priceId: !!priceId, successUrl: !!successUrl, cancelUrl: !!cancelUrl } }),
+        JSON.stringify({ error: 'Missing required parameters', received: { priceId: !!priceId, successUrl: !!successUrl, cancelUrl: !!cancelUrl } }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -80,8 +85,8 @@ serve(async (req: Request) => {
       // Save customer ID
       await supabase
         .from('subscriptions')
-        .upsert({ 
-          user_id: userId, 
+        .upsert({
+          user_id: userId,
           stripe_customer_id: customerId,
           tier: 'free',
           status: 'active'

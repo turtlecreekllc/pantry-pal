@@ -6,6 +6,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { authenticateRequest, isAuthFailure } from '../_shared/auth.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -31,17 +32,15 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
   try {
-    const { userId, trialTier = 'trial_individual' } = await req.json();
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing userId' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const auth = await authenticateRequest(req, corsHeaders);
+    if (isAuthFailure(auth)) return auth.response;
+    const userId = auth.userId;
+
+    const { trialTier = 'trial_individual' } = await req.json().catch(() => ({}));
     // Validate trial tier
     const validTiers: TrialTier[] = ['trial_individual', 'trial_family'];
-    const normalizedTier: TrialTier = validTiers.includes(trialTier as TrialTier) 
-      ? trialTier as TrialTier 
+    const normalizedTier: TrialTier = validTiers.includes(trialTier as TrialTier)
+      ? trialTier as TrialTier
       : 'trial_individual';
     const tokensToGrant = TRIAL_TOKENS[normalizedTier];
     const isFamily = normalizedTier === 'trial_family';

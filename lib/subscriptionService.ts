@@ -297,7 +297,6 @@ export async function createCheckoutSession(
   }
   const { data, error } = await supabase.functions.invoke('create-checkout-session', {
     body: {
-      userId,
       priceId,
       mode: 'subscription',
       successUrl: params.successUrl,
@@ -350,7 +349,6 @@ export async function createTokenPurchaseSession(
   }
   const { data, error } = await supabase.functions.invoke('create-checkout-session', {
     body: {
-      userId,
       priceId,
       mode: 'payment',
       successUrl: params.successUrl,
@@ -386,7 +384,6 @@ export async function getCustomerPortalUrl(
 ): Promise<{ url: string | null; error: string | null }> {
   const { data, error } = await supabase.functions.invoke('create-portal-session', {
     body: {
-      userId,
       returnUrl,
     },
   });
@@ -407,7 +404,7 @@ export async function startFreeTrial(
   trialTier: 'trial_individual' | 'trial_family' = 'trial_individual'
 ): Promise<{ success: boolean; error: string | null }> {
   const { data, error } = await supabase.functions.invoke('start-free-trial', {
-    body: { userId, trialTier },
+    body: { trialTier },
   });
   if (error) {
     console.error('Error starting free trial:', error);
@@ -426,7 +423,7 @@ export async function cancelSubscription(
   userId: string
 ): Promise<{ success: boolean; error: string | null }> {
   const { error } = await supabase.functions.invoke('cancel-subscription', {
-    body: { userId },
+    body: {},
   });
   if (error) {
     console.error('Error canceling subscription:', error);
@@ -442,7 +439,7 @@ export async function resumeSubscription(
   userId: string
 ): Promise<{ success: boolean; error: string | null }> {
   const { error } = await supabase.functions.invoke('resume-subscription', {
-    body: { userId },
+    body: {},
   });
   if (error) {
     console.error('Error resuming subscription:', error);
