@@ -5,17 +5,11 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { authenticateRequest, isAuthFailure } from '../_shared/auth.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders, handlePreflight } from '../_shared/cors.ts';
 
 serve(async (req: Request) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return handlePreflight(req);
+  const corsHeaders = buildCorsHeaders(req);
 
   try {
     const auth = await authenticateRequest(req, corsHeaders);

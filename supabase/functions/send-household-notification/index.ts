@@ -6,6 +6,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { authenticateRequest, isAuthFailure } from '../_shared/auth.ts';
+import { buildCorsHeaders, handlePreflight } from '../_shared/cors.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -28,11 +29,6 @@ interface ExpoPushMessage {
   channelId?: string;
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 /**
  * Formats activity into user-friendly notification
@@ -78,10 +74,8 @@ function formatActivityNotification(
 }
 
 serve(async (req: Request) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return handlePreflight(req);
+  const corsHeaders = buildCorsHeaders(req);
 
   try {
     const auth = await authenticateRequest(req, corsHeaders);
