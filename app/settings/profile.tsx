@@ -193,10 +193,23 @@ export default function ProfileScreen() {
                   style: 'destructive',
                   onPress: async () => {
                     try {
+                      const { data, error } = await supabase.functions.invoke(
+                        'delete-account',
+                        { body: {} }
+                      );
+                      if (error) throw error;
+                      // The edge function returns { error } on logical
+                      // failure (auth user delete failed) with HTTP 500;
+                      // some platforms surface that as data instead of error.
+                      if (data?.error) throw new Error(data.error);
                       await signOut();
                       router.replace('/(auth)/login');
-                    } catch (error) {
-                      Alert.alert('Error', 'Failed to delete account');
+                    } catch (error: unknown) {
+                      const message =
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to delete account. Please try again or contact support.';
+                      Alert.alert('Delete Account Failed', message);
                     }
                   },
                 },
