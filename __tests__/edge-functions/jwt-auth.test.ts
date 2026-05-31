@@ -27,6 +27,7 @@ const PROTECTED_FUNCTIONS = [
   'start-free-trial',
   'validate-apple-receipt',
   'send-household-notification',
+  'delete-account',
 ];
 
 const WEBHOOK_FUNCTIONS = ['stripe-webhook', 'apple-webhook'];

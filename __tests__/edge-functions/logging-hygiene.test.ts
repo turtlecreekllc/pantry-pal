@@ -32,8 +32,8 @@ function listFunctionSources(): { name: string; source: string }[] {
 describe('SEC-003: edge function logging hygiene', () => {
   const sources = listFunctionSources();
 
-  it('covers all 9 edge functions', () => {
-    expect(sources.length).toBe(9);
+  it('covers all 10 edge functions', () => {
+    expect(sources.length).toBe(10);
   });
 
   describe.each(sources)('$name/index.ts', ({ source }) => {

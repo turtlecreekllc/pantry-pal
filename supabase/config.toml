@@ -248,6 +248,9 @@ verify_jwt = true
 [functions.send-household-notification]
 verify_jwt = true
 
+[functions.delete-account]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327
