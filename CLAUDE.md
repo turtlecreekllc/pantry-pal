@@ -30,7 +30,16 @@ await callClaudeVision(PROMPT, compressed, 'image/jpeg');
 
 **OpenAI is retained ONLY for audio** (TTS `tts-1` and STT `whisper-1`) in `components/VoiceAssistantModal.tsx`. Do not migrate those.
 
-Environment variable: `EXPO_PUBLIC_ANTHROPIC_API_KEY`
+**Provider keys live on the server only (SEC-006).** All provider calls are
+proxied through Supabase Edge Functions — `claude-proxy`, `openai-audio-proxy`,
+`spoonacular-proxy` — and the client authenticates with its Supabase JWT.
+Never reintroduce `EXPO_PUBLIC_ANTHROPIC_API_KEY`, `EXPO_PUBLIC_OPENAI_API_KEY`,
+or `EXPO_PUBLIC_SPOONACULAR_API_KEY`; Expo would inline them into the shipped
+bundle. Set the upstream secrets with `supabase secrets set`:
+
+- `ANTHROPIC_API_KEY` → `claude-proxy`
+- `OPENAI_API_KEY` → `openai-audio-proxy`
+- `SPOONACULAR_API_KEY` → `spoonacular-proxy`
 
 ## Supabase
 

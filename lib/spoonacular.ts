@@ -1,7 +1,15 @@
 import { ExtendedRecipe, RecipeIngredient, RecipePreview, NutritionInfo } from './types';
+import { supabase } from './supabase';
 
-const BASE_URL = 'https://api.spoonacular.com';
-const API_KEY = process.env.EXPO_PUBLIC_SPOONACULAR_API_KEY;
+/**
+ * Spoonacular client (SEC-006).
+ *
+ * Requests are proxied through the Supabase `spoonacular-proxy` edge function
+ * so the upstream API key never ships in the client bundle. Auth is the user's
+ * Supabase JWT.
+ */
+
+type SpoonacularEndpoint = 'findByIngredients' | 'complexSearch' | 'recipeInformation';
 
 interface SpoonacularIngredient {
   id: number;
@@ -45,13 +53,57 @@ interface SpoonacularSearchResult {
 // Track if we've already warned about quota to avoid log spam
 let quotaWarningShown = false;
 
+function getProxyUrl(): string | null {
+  const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!base) return null;
+  return `${base.replace(/\/$/, '')}/functions/v1/spoonacular-proxy`;
+}
+
+async function callProxy(
+  endpoint: SpoonacularEndpoint,
+  options: { params?: Record<string, string | number | boolean>; id?: number },
+  context: string,
+): Promise<unknown | null> {
+  const url = getProxyUrl();
+  if (!url) {
+    console.log('[Spoonacular] Supabase URL not configured, skipping');
+    return null;
+  }
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) {
+    // Not signed in — Spoonacular features degrade silently for anonymous use.
+    return null;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ endpoint, params: options.params ?? {}, id: options.id }),
+    });
+
+    if (!response.ok) {
+      handleApiError(response.status, context);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.warn(`[Spoonacular] Network error in ${context}:`, error);
+    return null;
+  }
+}
+
 /**
  * Handle Spoonacular API response errors
- * Returns true if the error is recoverable (should return empty result)
  */
 function handleApiError(status: number, context: string): boolean {
   if (status === 402) {
-    // Payment Required - API quota exceeded (expected for free tier)
     if (!quotaWarningShown) {
       console.warn(`[Spoonacular] API quota exceeded. Using fallback recipes.`);
       quotaWarningShown = true;
@@ -72,32 +124,25 @@ function handleApiError(status: number, context: string): boolean {
 
 // Search recipes by ingredients
 export async function searchByIngredients(ingredients: string[]): Promise<RecipePreview[]> {
-  if (!API_KEY) {
-    console.log('[Spoonacular] API key not configured, skipping');
-    return [];
-  }
+  const data = (await callProxy(
+    'findByIngredients',
+    {
+      params: {
+        ingredients: ingredients.join(','),
+        number: 10,
+        ranking: 1,
+      },
+    },
+    'searchByIngredients',
+  )) as SpoonacularSearchResult[] | null;
 
-  try {
-    const response = await fetch(
-      `${BASE_URL}/recipes/findByIngredients?apiKey=${API_KEY}&ingredients=${encodeURIComponent(ingredients.join(','))}&number=10&ranking=1`
-    );
+  if (!data) return [];
 
-    if (!response.ok) {
-      handleApiError(response.status, 'searchByIngredients');
-      return [];
-    }
-
-    const data: SpoonacularSearchResult[] = await response.json();
-
-    return data.map((r) => ({
-      id: `spoonacular-${r.id}`,
-      name: r.title,
-      thumbnail: r.image,
-    }));
-  } catch (error) {
-    console.warn('[Spoonacular] Network error in searchByIngredients:', error);
-    return [];
-  }
+  return data.map((r) => ({
+    id: `spoonacular-${r.id}`,
+    name: r.title,
+    thumbnail: r.image,
+  }));
 }
 
 // Complex search with filters
@@ -108,107 +153,81 @@ export async function complexSearch(params: {
   maxReadyTime?: number;
   number?: number;
 }): Promise<RecipePreview[]> {
-  if (!API_KEY) {
-    console.log('[Spoonacular] API key not configured, skipping');
-    return [];
-  }
+  const upstreamParams: Record<string, string | number> = {
+    number: params.number || 10,
+  };
+  if (params.query) upstreamParams.query = params.query;
+  if (params.cuisine) upstreamParams.cuisine = params.cuisine;
+  if (params.diet) upstreamParams.diet = params.diet;
+  if (params.maxReadyTime) upstreamParams.maxReadyTime = params.maxReadyTime;
 
-  try {
-    const searchParams = new URLSearchParams({
-      apiKey: API_KEY,
-      number: (params.number || 10).toString(),
-    });
+  const data = (await callProxy(
+    'complexSearch',
+    { params: upstreamParams },
+    'complexSearch',
+  )) as { results?: SpoonacularSearchResult[] } | null;
 
-    if (params.query) searchParams.append('query', params.query);
-    if (params.cuisine) searchParams.append('cuisine', params.cuisine);
-    if (params.diet) searchParams.append('diet', params.diet);
-    if (params.maxReadyTime) searchParams.append('maxReadyTime', params.maxReadyTime.toString());
+  if (!data) return [];
 
-    const response = await fetch(`${BASE_URL}/recipes/complexSearch?${searchParams}`);
-
-    if (!response.ok) {
-      handleApiError(response.status, 'complexSearch');
-      return [];
-    }
-
-    const data = await response.json();
-
-    return (data.results || []).map((r: SpoonacularSearchResult) => ({
-      id: `spoonacular-${r.id}`,
-      name: r.title,
-      thumbnail: r.image,
-    }));
-  } catch (error) {
-    console.warn('[Spoonacular] Network error in complexSearch:', error);
-    return [];
-  }
+  return (data.results || []).map((r) => ({
+    id: `spoonacular-${r.id}`,
+    name: r.title,
+    thumbnail: r.image,
+  }));
 }
 
 // Get full recipe details by ID
 export async function getRecipeById(id: number): Promise<ExtendedRecipe | null> {
-  if (!API_KEY) {
-    console.log('[Spoonacular] API key not configured, skipping');
-    return null;
+  const data = (await callProxy(
+    'recipeInformation',
+    { id, params: { includeNutrition: true } },
+    `getRecipeById(${id})`,
+  )) as SpoonacularRecipe | null;
+
+  if (!data) return null;
+
+  // Parse instructions - either from analyzedInstructions or plain text
+  let instructions = data.instructions || '';
+  if (data.analyzedInstructions && data.analyzedInstructions.length > 0) {
+    instructions = data.analyzedInstructions[0].steps
+      .map((step, index) => `${index + 1}. ${step.step}`)
+      .join('\n');
   }
 
-  try {
-    const response = await fetch(
-      `${BASE_URL}/recipes/${id}/information?apiKey=${API_KEY}&includeNutrition=true`
-    );
+  const ingredients: RecipeIngredient[] = (data.extendedIngredients || []).map((ing) => ({
+    ingredient: ing.name,
+    measure: `${ing.amount} ${ing.unit}`.trim(),
+  }));
 
-    if (!response.ok) {
-      handleApiError(response.status, `getRecipeById(${id})`);
-      return null;
-    }
+  const nutrients = data.nutrition?.nutrients || [];
+  const nutrition: NutritionInfo = {
+    energy_kcal: nutrients.find(n => n.name === 'Calories')?.amount,
+    proteins: nutrients.find(n => n.name === 'Protein')?.amount,
+    fat: nutrients.find(n => n.name === 'Fat')?.amount,
+    carbohydrates: nutrients.find(n => n.name === 'Carbohydrates')?.amount,
+    fiber: nutrients.find(n => n.name === 'Fiber')?.amount,
+    sodium: nutrients.find(n => n.name === 'Sodium')?.amount,
+    saturated_fat: nutrients.find(n => n.name === 'Saturated Fat')?.amount,
+    sugars: nutrients.find(n => n.name === 'Sugar')?.amount,
+    salt: nutrients.find(n => n.name === 'Salt')?.amount,
+  };
 
-    const data: SpoonacularRecipe = await response.json();
-
-    // Parse instructions - either from analyzedInstructions or plain text
-    let instructions = data.instructions || '';
-    if (data.analyzedInstructions && data.analyzedInstructions.length > 0) {
-      instructions = data.analyzedInstructions[0].steps
-        .map((step, index) => `${index + 1}. ${step.step}`)
-        .join('\n');
-    }
-
-    const ingredients: RecipeIngredient[] = (data.extendedIngredients || []).map((ing) => ({
-      ingredient: ing.name,
-      measure: `${ing.amount} ${ing.unit}`.trim(),
-    }));
-
-    const nutrients = data.nutrition?.nutrients || [];
-    const nutrition: NutritionInfo = {
-      energy_kcal: nutrients.find(n => n.name === 'Calories')?.amount,
-      proteins: nutrients.find(n => n.name === 'Protein')?.amount,
-      fat: nutrients.find(n => n.name === 'Fat')?.amount,
-      carbohydrates: nutrients.find(n => n.name === 'Carbohydrates')?.amount,
-      fiber: nutrients.find(n => n.name === 'Fiber')?.amount,
-      sodium: nutrients.find(n => n.name === 'Sodium')?.amount,
-      saturated_fat: nutrients.find(n => n.name === 'Saturated Fat')?.amount,
-      sugars: nutrients.find(n => n.name === 'Sugar')?.amount,
-      salt: nutrients.find(n => n.name === 'Salt')?.amount,
-    };
-
-    return {
-      id: `spoonacular-${data.id}`,
-      name: data.title,
-      category: data.cuisines[0] || 'Other',
-      area: data.cuisines.join(', ') || 'International',
-      instructions,
-      thumbnail: data.image,
-      youtubeUrl: null,
-      source: data.sourceUrl,
-      ingredients,
-      recipeSource: 'spoonacular',
-      readyInMinutes: data.readyInMinutes,
-      servings: data.servings,
-      diets: data.diets,
-      nutrition,
-    };
-  } catch (error) {
-    console.warn('[Spoonacular] Network error in getRecipeById:', error);
-    return null;
-  }
+  return {
+    id: `spoonacular-${data.id}`,
+    name: data.title,
+    category: data.cuisines[0] || 'Other',
+    area: data.cuisines.join(', ') || 'International',
+    instructions,
+    thumbnail: data.image,
+    youtubeUrl: null,
+    source: data.sourceUrl,
+    ingredients,
+    recipeSource: 'spoonacular',
+    readyInMinutes: data.readyInMinutes,
+    servings: data.servings,
+    diets: data.diets,
+    nutrition,
+  };
 }
 
 // Extract numeric ID from prefixed ID

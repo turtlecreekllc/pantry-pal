@@ -2,29 +2,40 @@
  * Shared Claude API client for Dinner Plans.
  *
  * All AI calls (except OpenAI audio: TTS tts-1 and STT whisper-1) go through here.
- * Uses raw fetch() consistent with the existing codebase pattern — no npm SDK needed.
  *
- * Data flow:
+ * Data flow (SEC-006):
  *   callers (tonightService, aiRecipeGenerator, chatService, etc.)
  *     └─→ callClaude / callClaudeVision / callClaudeWithTools
- *           └─→ POST https://api.anthropic.com/v1/messages
- *                 └─→ Claude claude-sonnet-4-6
+ *           └─→ POST <SUPABASE_URL>/functions/v1/claude-proxy   (JWT required)
+ *                 └─→ Anthropic Messages API (claude-sonnet-4-6)
+ *
+ * The Anthropic API key lives in the Supabase Edge Function secrets, not in
+ * the React Native bundle. The client only sends its Supabase JWT.
  */
 
-const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+import { supabase } from './supabase';
+
 const CLAUDE_MODEL = 'claude-sonnet-4-6';
-const CLAUDE_API_VERSION = '2023-06-01';
 const DEFAULT_MAX_TOKENS = 2048;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
 
-const getAnthropicKey = (): string => {
-  const key = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
-  if (!key || key === 'your-anthropic-api-key-here') {
-    throw new ClaudeError('EXPO_PUBLIC_ANTHROPIC_API_KEY is not configured', 0);
+const getProxyUrl = (): string => {
+  const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!base) {
+    throw new ClaudeError('EXPO_PUBLIC_SUPABASE_URL is not configured', 0);
   }
-  return key;
+  return `${base.replace(/\/$/, '')}/functions/v1/claude-proxy`;
 };
+
+async function getAccessToken(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) {
+    throw new ClaudeError('Not signed in: cannot call Claude proxy', 401);
+  }
+  return token;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -102,11 +113,11 @@ async function fetchWithTimeout(
 }
 
 async function callClaudeAPI(body: Record<string, unknown>): Promise<unknown> {
-  const key = getAnthropicKey();
+  const url = getProxyUrl();
+  const token = await getAccessToken();
   const headers = {
     'Content-Type': 'application/json',
-    'x-api-key': key,
-    'anthropic-version': CLAUDE_API_VERSION,
+    Authorization: `Bearer ${token}`,
   };
 
   let lastError: ClaudeError | null = null;
@@ -118,7 +129,7 @@ async function callClaudeAPI(body: Record<string, unknown>): Promise<unknown> {
     }
 
     const response = await fetchWithTimeout(
-      CLAUDE_API_URL,
+      url,
       { method: 'POST', headers, body: JSON.stringify(body) },
       DEFAULT_TIMEOUT_MS
     );

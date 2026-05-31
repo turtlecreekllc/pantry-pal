@@ -248,6 +248,16 @@ verify_jwt = true
 [functions.send-household-notification]
 verify_jwt = true
 
+# AI provider proxies (SEC-006) — keep upstream API keys out of the client bundle.
+[functions.claude-proxy]
+verify_jwt = true
+
+[functions.openai-audio-proxy]
+verify_jwt = true
+
+[functions.spoonacular-proxy]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

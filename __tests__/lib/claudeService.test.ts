@@ -1,13 +1,28 @@
 /**
- * Tests for lib/claudeService.ts
+ * Tests for lib/claudeService.ts (SEC-006 proxy-based contract)
  *
- * All tests mock global fetch — Claude API is never called for real.
+ * All tests mock global fetch — neither the Claude proxy nor Anthropic is
+ * called for real. The supabase client is mocked globally in jest.setup.js
+ * and supplies an `access_token` on `auth.getSession()`.
  */
 
-// Set env before module import so getAnthropicKey() sees it at module load time
-process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY = 'test-key-abc123';
+// Set env before module import so getProxyUrl() sees it at module load time
+process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
 
 import { callClaude, callClaudeVision, callClaudeWithTools, ClaudeError } from '../../lib/claudeService';
+import { supabase } from '../../lib/supabase';
+
+const PROXY_URL = 'https://test.supabase.co/functions/v1/claude-proxy';
+
+const sessionResult = {
+  data: {
+    session: {
+      user: { id: 'test-user-id', email: 'test@example.com' },
+      access_token: 'mock-access-token',
+    },
+  },
+  error: null,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,7 +50,10 @@ function makeErrorResponse(status: number, body = 'error') {
 
 beforeEach(() => {
   jest.resetAllMocks();
-  process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY = 'test-key-abc123';
+  process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+  // The global jest.setup.js mock is wiped by resetAllMocks(); restore the
+  // session shape the proxy client depends on.
+  (supabase.auth.getSession as jest.Mock).mockResolvedValue(sessionResult);
 });
 
 // ---------------------------------------------------------------------------
@@ -43,29 +61,27 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('callClaude', () => {
-  it('sends correct headers and returns text content', async () => {
+  it('posts to the claude-proxy with the user JWT and returns text content', async () => {
     global.fetch = jest.fn().mockResolvedValueOnce(makeSuccessResponse('Hello world'));
 
     const result = await callClaude('You are a chef', [{ role: 'user', content: 'suggest dinner' }]);
 
     expect(result).toBe('Hello world');
     const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
-    expect(url).toBe('https://api.anthropic.com/v1/messages');
+    expect(url).toBe(PROXY_URL);
     const body = JSON.parse(opts.body);
     expect(body.model).toBe('claude-sonnet-4-6');
     expect(body.system).toBe('You are a chef');
-    expect(opts.headers['x-api-key']).toBe('test-key-abc123');
-    expect(opts.headers['anthropic-version']).toBe('2023-06-01');
+    expect(opts.headers.Authorization).toBe('Bearer mock-access-token');
+    expect(opts.headers['Content-Type']).toBe('application/json');
+    // Provider-specific headers must NOT leak from the client.
+    expect(opts.headers['x-api-key']).toBeUndefined();
+    expect(opts.headers['anthropic-version']).toBeUndefined();
   });
 
-  it('throws ClaudeError when API key is missing', async () => {
-    delete process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+  it('throws ClaudeError when SUPABASE_URL is missing', async () => {
+    delete process.env.EXPO_PUBLIC_SUPABASE_URL;
     await expect(callClaude('system', [{ role: 'user', content: 'hi' }])).rejects.toThrow('not configured');
-  });
-
-  it('throws ClaudeError when API key is placeholder', async () => {
-    process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY = 'your-anthropic-api-key-here';
-    await expect(callClaude('system', [{ role: 'user', content: 'hi' }])).rejects.toThrow(ClaudeError);
   });
 
   it('retries on 429 and succeeds on second attempt', async () => {
@@ -119,7 +135,9 @@ describe('callClaudeVision', () => {
     const result = await callClaudeVision('Analyze this image', 'base64imagedata==', 'image/jpeg');
 
     expect(result).toBe('found 3 items');
-    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    const [url, opts] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe(PROXY_URL);
+    const body = JSON.parse(opts.body);
     const imageBlock = body.messages[0].content[0];
     expect(imageBlock.type).toBe('image');
     expect(imageBlock.source.type).toBe('base64');
